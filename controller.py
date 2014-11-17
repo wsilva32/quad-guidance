@@ -3,7 +3,6 @@
 #Imports
 import sys, struct, time, os
 from pymavlink import mavutil
-from MAVProxy.modules.lib import mp_module
 
 #Define functions
 def wait_heartbeat(m):
