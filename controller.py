@@ -19,6 +19,24 @@ master = mavutil.mavlink_connection('udp:127.0.0.1:14551', baud=115200)
 # wait for the heartbeat msg to find the system ID
 wait_heartbeat(master)
 
+#Download state information
+while True:
+	msg = master.recv_match(type='ATTITUDE',blocking=False)
+	if not msg is None:
+		print "Roll: %f" % msg.roll
+		print "Pitch: %f" % msg.pitch
+		print "Yaw: %f" % msg.yaw
+		print "Rollspeed: %f" % msg.rollspeed
+		print "Pitchspeed: %f" % msg.pitchspeed
+		print "Yawspeed: %f" % msg.yawspeed
+
+	msg = master.recv_match(type='GLOBAL_POSITION_INT',blocking=False)
+	if not msg is None:
+		print "Latitude: %f" % (msg.lat/(10**7))
+		print "Longitude: %f" % (msg.lon/(10**7))
+		print "Altitude: %f" % (msg.alt/1000)
+
+
 #make sure throttle is low before arming
 data = [ 0 ] * 8
 data[2] = 0  #index => 0 = roll, 1 = pitch, 2 = throttle, 3 = yaw
