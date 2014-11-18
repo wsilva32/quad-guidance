@@ -1,5 +1,11 @@
 %% Simulation
-clear all
+% clear all
+
+% INPUT AND STATE DESCRIPTION
+% u = [pitch_com roll_com r_com throttle_com]'
+% where r is the rate about body z (need to verify this is correct)
+% x = [x y z u v w roll pitch yaw r throttle]
+
 % PARAMETERS
 
 global FoVv FoVh FoVpv FoVph T_max m g CDA
@@ -18,6 +24,17 @@ g = 9.807;
 
 % mass
 m = 2;
+
+% measurement noise
+
+% turn on measurment noise
+noise = true;
+
+sig_pos = 0.1;
+sig_vel = 0.1;
+sig_euler = 1*pi/180;
+sig_r = 0.2*pi/180;
+sig_X = [sig_pos*ones(1,3) sig_vel*ones(1,3) sig_euler*ones(1,3) sig_r 0]; %no noise added to the throttle state because this is not measured 
 
 % max thrust (in real system will be approximate as linear from thrust for
 % level flight)
@@ -73,7 +90,7 @@ t = 1:dt:tmax;
 
 % loops
 n = length(t);
-
+l = length(x0);
 % preallocate state
 u = zeros(n,4);
 x = zeros(n,length(x0));
@@ -85,7 +102,12 @@ for i = 1:n-1
     
     target = target_sim(t_pos,x(i,:));
     try
-        u(i,:) = quad_control(t(i),target,x(i,:),speed_des,start);
+        if noise
+            x_meas = x(i,:) + (sig_X*randn(l,1))';
+        else
+            x_meas = x(i,:);
+        end
+        u(i,:) = quad_control(t(i),target,x_meas,speed_des,start);
     catch
         warning('Target Lost')
         end_ind = i;

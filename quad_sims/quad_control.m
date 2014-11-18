@@ -165,10 +165,54 @@ yaw_diff = atan2(vec(2),vec(1));
 % ALTITUDE CONTROL 
 
 % differentiator
+persistent Pk_plus_t xk_plus_t
+
+% kalman filter differentiator
+
+% measurement noise
+R = 1*pi/180;
+% process noise
+Q = diag([0.01 0.3].^2);
+
+% measurement matrix
+H_til = [1 0];
+
+% state transition matrix
+F = [0 1;0 0];
+phi = expm(F*dt);
+
+P_bar_t0 = diag([0.01 1].^2);
+gam_d_x_bar0 = [gam_d 0]';
+
 if start
-    gam_dot = 0;
+%     speed_err_dot = 0;
+    P_bar_t = P_bar_t0;
+    gam_d_x_bar = gam_d_x_bar0;
+    % Measurement Update
+    y_t               = gam_d - H_til*gam_d_x_bar;
+    K_t               = P_bar_t*H_til'/(H_til*P_bar_t*H_til' + R);
+    xk_plus_t         = gam_d_x_bar + (K_t*y_t);
+    Pk_plus_t         = (eye(2) - K_t*H_til)*P_bar_t;
+    gam_dot     = xk_plus_t(2);
+    
 else
-    gam_dot = (gam_d - gam_d_m1)/dt;
+%     speed_err_dot = (speed_err - speed_err_m1)/dt;
+
+    Pk_t = Pk_plus_t;
+    xk_t = xk_plus_t;
+
+    % Time Update
+    %   state is error and its derivative
+    
+    gam_d_x_bar           = phi*xk_t; %xk + [dt*xk(1) 0]'
+    P_bar_t           = phi*Pk_t*phi' + Q;
+    
+    % Measurement Update
+    y_t               = gam_d - H_til*gam_d_x_bar;
+    K_t               = P_bar_t*H_til'/(H_til*P_bar_t*H_til' + R);
+    xk_plus_t         = gam_d_x_bar + (K_t*y_t);
+    Pk_plus_t         = (eye(2) - K_t*H_til)*P_bar_t;
+    gam_dot     = xk_plus_t(2);
 end
 
 % integrator
@@ -206,13 +250,55 @@ speed = vel(1);
 speed_err = speed - speed_des;
 
 % differentiator
+persistent Pk_plus_p xk_plus_p
+
+% kalman filter differentiator
+
+% measurement noise
+R = 0.1;
+% process noise
+Q = diag([0.01 0.1].^2);
+
+% measurement matrix
+H_til = [1 0];
+
+% state transition matrix
+F = [0 1;0 0];
+phi = expm(F*dt);
+
+P_bar_p0 = diag([0.1 1].^2);
+speed_err_x_bar0 = [speed_err 0]';
+
 if start
-    speed_err_dot = 0;
+%     speed_err_dot = 0;
+    P_bar_p = P_bar_p0;
+    speed_err_x_bar = speed_err_x_bar0;
+    % Measurement Update
+    y_p               = speed_err - H_til*speed_err_x_bar;
+    K_p               = P_bar_p*H_til'/(H_til*P_bar_p*H_til' + R);
+    xk_plus_p         = speed_err_x_bar + (K_p*y_p);
+    Pk_plus_p         = (eye(2) - K_p*H_til)*P_bar_p;
+    speed_err_dot     = xk_plus_p(2);
+    
 else
-    speed_err_dot = (speed_err - speed_err_m1)/dt;
+%     speed_err_dot = (speed_err - speed_err_m1)/dt;
+
+    Pk_p = Pk_plus_p;
+    xk_p = xk_plus_p;
+
+    % Time Update
+    %   state is error and its derivative
+    
+    speed_err_x_bar   = phi*xk_p; %xk + [dt*xk(1) 0]'
+    P_bar_p           = phi*Pk_p*phi' + Q;
+    
+    % Measurement Update
+    y_p               = speed_err - H_til*speed_err_x_bar;
+    K_p               = P_bar_p*H_til'/(H_til*P_bar_p*H_til' + R);
+    xk_plus_p         = speed_err_x_bar + (K_p*y_p);
+    Pk_plus_p         = (eye(2) - K_p*H_til)*P_bar_p;
+    speed_err_dot     = xk_plus_p(2);
 end
-
-
 
 % integrator
 speed_err_int = speed_err_int + speed_err*dt;
@@ -232,13 +318,55 @@ end
 % YAW CONTROL
 
 % differentiator
+persistent Pk_plus_r xk_plus_r
+
+% kalman filter differentiator
+
+% measurement noise
+R = 1*pi/180;
+% process noise
+Q = diag([0.01 0.3].^2);
+
+% measurement matrix
+H_til = [1 0];
+
+% state transition matrix
+F = [0 1;0 0];
+phi = expm(F*dt);
+
+P_bar_r0 = diag([0.01 1].^2);
+yaw_diff_x_bar0 = [yaw_diff 0]';
 
 if start
-    yaw_diff_dot = 0;
+%     speed_err_dot = 0;
+    P_bar_r = P_bar_r0;
+    yaw_diff_x_bar = yaw_diff_x_bar0;
+    % Measurement Update
+    y_r               = yaw_diff - H_til*yaw_diff_x_bar;
+    K_r               = P_bar_r*H_til'/(H_til*P_bar_r*H_til' + R);
+    xk_plus_r         = yaw_diff_x_bar + (K_r*y_r);
+    Pk_plus_r         = (eye(2) - K_r*H_til)*P_bar_r;
+    yaw_diff_dot     = xk_plus_r(2);
+    
 else
-    yaw_diff_dot = (yaw_diff - yaw_diff_m1)/dt;
-end
+%     speed_err_dot = (speed_err - speed_err_m1)/dt;
 
+    Pk_r = Pk_plus_r;
+    xk_r = xk_plus_r;
+
+    % Time Update
+    %   state is error and its derivative
+    
+    yaw_diff_x_bar           = phi*xk_r; %xk + [dt*xk(1) 0]'
+    P_bar_r           = phi*Pk_r*phi' + Q;
+    
+    % Measurement Update
+    y_r               = yaw_diff - H_til*yaw_diff_x_bar;
+    K_r               = P_bar_r*H_til'/(H_til*P_bar_r*H_til' + R);
+    xk_plus_r         = yaw_diff_x_bar + (K_r*y_r);
+    Pk_plus_r         = (eye(2) - K_r*H_til)*P_bar_r;
+    yaw_diff_dot     = xk_plus_r(2);
+end
 
 
 % integrator
@@ -261,13 +389,55 @@ end
 sw_slip = vel(2);
 
 % differentiator
+persistent Pk_plus_rl xk_plus_rl
+
+% kalman filter differentiator
+
+% measurement noise
+R = 1*pi/180;
+% process noise
+Q = diag([0.01 0.3].^2);
+
+% measurement matrix
+H_til = [1 0];
+
+% state transition matrix
+F = [0 1;0 0];
+phi = expm(F*dt);
+
+P_bar_rl0 = diag([0.1 1].^2);
+sw_slip_x_bar0 = [sw_slip 0]';
 
 if start
-    sw_slip_dot = 0;
+%     speed_err_dot = 0;
+    P_bar_rl = P_bar_rl0;
+    sw_slip_x_bar = sw_slip_x_bar0;
+    % Measurement Update
+    y_rl               = sw_slip - H_til*sw_slip_x_bar;
+    K_rl               = P_bar_rl*H_til'/(H_til*P_bar_rl*H_til' + R);
+    xk_plus_rl         = sw_slip_x_bar + (K_rl*y_rl);
+    Pk_plus_rl         = (eye(2) - K_rl*H_til)*P_bar_rl;
+    sw_slip_dot     = xk_plus_r(2);
+    
 else
-    sw_slip_dot = (sw_slip - sw_slip_m1)/dt;
-end
+%     speed_err_dot = (speed_err - speed_err_m1)/dt;
 
+    Pk_rl = Pk_plus_rl;
+    xk_rl = xk_plus_rl;
+
+    % Time Update
+    %   state is error and its derivative
+    
+    sw_slip_x_bar           = phi*xk_rl; %xk + [dt*xk(1) 0]'
+    P_bar_rl           = phi*Pk_rl*phi' + Q;
+    
+    % Measurement Update
+    y_rl               = sw_slip - H_til*sw_slip_x_bar;
+    K_rl               = P_bar_rl*H_til'/(H_til*P_bar_rl*H_til' + R);
+    xk_plus_rl         = sw_slip_x_bar + (K_rl*y_rl);
+    Pk_plus_rl         = (eye(2) - K_rl*H_til)*P_bar_rl;
+    sw_slip_dot     = xk_plus_r(2);
+end
 
 % integrator
 sw_slip_int = sw_slip_int + sw_slip*dt;
