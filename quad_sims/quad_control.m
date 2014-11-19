@@ -394,7 +394,7 @@ persistent Pk_plus_rl xk_plus_rl
 % kalman filter differentiator
 
 % measurement noise
-R = 1*pi/180;
+R = 0.1;
 % process noise
 Q = diag([0.01 0.3].^2);
 

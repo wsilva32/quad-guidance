@@ -6,7 +6,7 @@ from pymavlink import mavutil
 import numpy as np
 from math import *
 from attitude_tools import angle2dcm
-
+from KF_error import error_derivative_KF
 
 #Define functions
 def wait_heartbeat(m):
@@ -58,8 +58,13 @@ FoVpv = 320
 #range to virtual plane in pixels
 rangeh = FoVph/tan(FoVh)
 rangev = FoVpv/tan(FoVv)
-
+start = True
+prev = time.time()
 while True:
+
+	#get the time step
+	dt = time.time() - prev
+	prev = time.time()
 	#Get velocity (vel) and roll and pitch
 	roll = msg.roll
 	pitch = msg.pitch
@@ -113,7 +118,17 @@ pitch, roll)
 
 	#ALTITUDE CONTROL#
 	#differentiator
-
+	P_bar_0 = np.diag(np.array([0.01, 1])^2)
+	x_bar0 = np.transpose(np.array([gam_d, 0]))
+	Q = np.diag(np.array([0.01, 0.3])^2)
+	R = 1*pi/180
+	if start:
+		KF_gam = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,gam_d)
+	else:
+		KF_gam = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,gam_d,Pk_gam,xk_gam)
+	Pk_gam = KF_gam[1]
+	xk_gam = KF_gam[2]
+	gam_dot = xk_gam[2]
 	#integrator
 	gam_int = gam_int + gam_d*dt
 
@@ -143,7 +158,17 @@ pitch, roll)
 	speed_err = speed - speed_des
 
 	#differentiator
-
+	P_bar_0 = np.diag(np.array([0.1, 1])^2)
+	x_bar0 = np.transpose(np.array([speed_err, 0]))
+	Q = np.diag(np.array([0.01, 0.1])^2)
+	R = 0.1
+	if start:
+		KF_speed_err = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,speed_err)
+	else:
+		KF_speed_err = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,speed_err,Pk_speed_err,xk_speed_err)
+	Pk_speed_err = KF_speed_err[1]
+	xk_speed_err = KF_speed_err[2]
+	speed_err_dot = xk_speed_err[2]
 	#integrator
 	speed_err_int = speed_err_int + speed_err*dt
 
@@ -159,7 +184,17 @@ pitch, roll)
 	#YAW CONTROL#
 
 	#differentiator
-
+	P_bar_0 = np.diag(np.array([0.1, 1])^2)
+	x_bar0 = np.transpose(np.array([yaw_diff, 0]))
+	Q = np.diag(np.array([0.01, 0.3])^2)
+	R = 1*pi/180
+	if start:
+		KF_speed_err = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff)
+	else:
+		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff,Pk_yaw_diff,xk_yaw_diff)
+	Pk_yaw_diff = KF_yaw_diff[1]
+	xk_yaw_diff = KF_yaw_diff[2]
+	yaw_diff_dot = xk_yaw_diff[2]
 	#integator
 	yaw_diff_int = yaw_diff_int + yaw_diff*dt
 
@@ -178,7 +213,17 @@ pitch, roll)
 	sw_slip = vel[2]
 
 	#differentiator
-
+	P_bar_0 = np.diag(np.array([0.1, 1])^2)
+	x_bar0 = np.transpose(np.array([sw_slip, 0]))
+	Q = np.diag(np.array([0.01, 0.3])^2)
+	R = 0.1
+	if start:
+		KF_speed_err = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,sw_slip)
+	else:
+		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,sw_slip,Pk_sw_slip,xk_sw_slip)
+	Pk_sw_slip = KF_sw_slip[1]
+	xk_sw_slip = KF_sw_slip[2]
+	sw_slip_dot = xk_sw_slip[2]
 	#integrator
 	sw_slip_int = sw_slip_int + sw_slip*dt
 
@@ -193,6 +238,7 @@ pitch, roll)
 
 	#COMMAND#
 	u = [pitch_com roll_com r_com throttle_com]
+	start = False
 
 
 
