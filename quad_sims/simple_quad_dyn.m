@@ -2,7 +2,7 @@ function xdot = simple_quad_dyn(t,x,u)
 % u = [pitch_com roll_com r_com throttle_com]'
 % where r is the rate about body z (need to verify this is correct)
 % x = [x y z u v w roll pitch yaw r throttle]
-global FoVv FoVh FoVpv FoVph T_max m g CDA
+global T_max m g CDA sig_w_x sig_w_y sig_w_z Wd t_const_roll t_const_pitch t_const_yaw_rate t_const_throttle
 % input parsing
 roll_com = u(2);
 pitch_com = u(1);
@@ -10,11 +10,7 @@ r_com = u(3);
 throttle_com = u(4);
 
 % time delay for command inner loops
-% time constants
-t_const_roll = 1;
-t_const_pitch = 1;
-t_const_yaw_rate = 0.3;
-t_const_throttle = 0.05;
+
 
 roll_dot =  (1./t_const_roll).*(roll_com - x(7));
 pitch_dot =  (1./t_const_pitch).*(pitch_com - x(8));
@@ -41,15 +37,21 @@ gb = Rib*[0 0 g*m]';
 % thrust force
 T = [0 0 -x(11)*T_max]';
 
-% drag force
+% drag force with wind disturbances
 
-if norm([x(4) x(5) x(6)]')>0
-    D = -CDA*norm([x(4) x(5) x(6)]')^2/2*([x(4) x(5) x(6)]'/norm([x(4) x(5) x(6)]'));
+Wd = Wd + [sig_w_x sig_w_y sig_w_z]'.*randn(3,1);
+
+if norm([x(4) x(5) x(6)]' - Wd)>0
+    D = -CDA*norm([x(4) x(5) x(6)]' - Wd)^2/2*(([x(4) x(5) x(6)]' - Wd)/norm([x(4) x(5) x(6)]' - Wd));
 else
     D = zeros(3,1);
 end
 
 Fb = T + D + gb;
+
+% disturbance forces
+
+Fd = Rib*(CDA*Wd);
 
 % velocity
 

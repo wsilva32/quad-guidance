@@ -126,8 +126,8 @@ vecb = [1; tan(az); tan(el)];
 vecb = vecb./norm(vecb);
 
 % transforms
-Rib = angle2dcm(x(9), x(8), x(7));
-Rbi = Rib';
+% Rib = angle2dcm(x(9), x(8), x(7));
+% Rbi = Rib';
 
 % we are interested in relative yaw angle so the yaw can be assumed zero
 Rib_image = angle2dcm(0, x(8), x(7));
@@ -225,7 +225,12 @@ gam_int = gam_int + gam_d*dt;
 throttle_com_ff = m*g/(cos(x(7))*cos(x(8))*T_max);
 
 % we may need P and I control here 
+% neglect derivative control to allow estimator time to converge
+% if t>1
 throttle_com = throttle_com_ff - KP_t*gam_d - KI_t*gam_int - KD_t*gam_dot;
+% else
+%     throttle_com = throttle_com_ff - KP_t*gam_d - KI_t*gam_int;
+% end
 
 % throttle saturation
 if throttle_com > throttle_sat
@@ -244,7 +249,7 @@ end
 % the unperturbed case
 
 % forward speed from state
-vel = Rbi_image*[x(4) x(5) x(6)]';
+vel = Rbi_image*x(4:6)';
 speed = vel(1);
 
 speed_err = speed - speed_des;
@@ -303,6 +308,10 @@ end
 % integrator
 speed_err_int = speed_err_int + speed_err*dt;
 
+% wind up clearing
+if speed_err<0.01
+    speed_err_int = 0;
+end
 
 % pitch down speeds you up
 pitch_com = KP_p*speed_err + KI_p*speed_err_int + KD_p*speed_err_dot;
@@ -417,7 +426,7 @@ if start
     K_rl               = P_bar_rl*H_til'/(H_til*P_bar_rl*H_til' + R);
     xk_plus_rl         = sw_slip_x_bar + (K_rl*y_rl);
     Pk_plus_rl         = (eye(2) - K_rl*H_til)*P_bar_rl;
-    sw_slip_dot     = xk_plus_r(2);
+    sw_slip_dot     = xk_plus_rl(2);
     
 else
 %     speed_err_dot = (speed_err - speed_err_m1)/dt;
@@ -436,7 +445,7 @@ else
     K_rl               = P_bar_rl*H_til'/(H_til*P_bar_rl*H_til' + R);
     xk_plus_rl         = sw_slip_x_bar + (K_rl*y_rl);
     Pk_plus_rl         = (eye(2) - K_rl*H_til)*P_bar_rl;
-    sw_slip_dot     = xk_plus_r(2);
+    sw_slip_dot     = xk_plus_rl(2);
 end
 
 % integrator
@@ -451,7 +460,6 @@ if roll_com > roll_sat
 elseif roll_com < -roll_sat;
     roll_com = -roll_sat;
 end
-
 
 % COMMAND
 u = [pitch_com roll_com r_com throttle_com];

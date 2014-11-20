@@ -5,7 +5,7 @@ if size(t_pos,1) == 1
 end
 
 
-global FoVv FoVh FoVpv FoVph T_max m g
+global FoVv FoVh FoVpv FoVph
 
 % % field of view from center in degrees
 % FoVh = 40*pi/180;
