@@ -7,7 +7,8 @@ import numpy as np
 from math import *
 from attitude_tools import angle2dcm
 from KF_error import error_derivative_KF
-
+from coord_trans import lla2flatdumb
+from target_sim import target_sim
 #Define functions
 def wait_heartbeat(m):
 	'''wait for a heartbeat so we know the target system IDs'''
@@ -16,6 +17,16 @@ def wait_heartbeat(m):
 	print("Heartbeat from APM (system %u component %u)" % (m.target_system, m.target_system))
 
 #Program Start
+
+#TARGET INFO(for SiL only)#
+#desired coordinate center (datum)
+lat0 = 40.1447601
+lon0 = -105.2435532
+alt0 = 1680.38
+
+t_pos = np.array([[100], [30], [10]])
+#NOTE: need a way to ensure we are pointed towars the target before begining so we can see it in the image (maybe just command a reasonably close yaw?)
+
 
 #GAINS#
 #throttle
@@ -47,6 +58,14 @@ throttle_sat = 1
 #TEMP!!!
 target = np.array([1,2])
 
+#PARAMETERS
+g = 9.807;
+m = 2;
+#level hover thrust fraction
+th0 = 0.3;
+
+#max thrust
+
 #field of view from center in degrees
 FoVh = 40*pi/180
 FoVv = 40*pi/180
@@ -65,10 +84,28 @@ while True:
 	#get the time step
 	dt = time.time() - prev
 	prev = time.time()
-	#Get velocity (vel) and roll and pitch
+	#Get velocity (vel), roll and pitch
 	roll = msg.roll
 	pitch = msg.pitch
 
+	#get the target position in the image
+	
+	# get the position and yaw (needed only for SiL, may be needed later for search phase but that should come from Vicon)
+	yaw = msg.yaw
+	
+	lat = msg.lat/(10**7)
+	lon = msg.lon/(10**7)
+	alt = msg.alt/1000
+	
+ 	pos = lla2flatdumb(lat,lon,alt,lat0,lon0,alt0)
+	x = pos[0]
+	y = pos[1]
+	z = pos[2]
+	
+	# simulate the target for SiL
+	
+	target_sim(t_pos,x,y,z,roll,pitch,yaw,FoVv, FoVh, FoVpv, FoVph)
+	
 	#MEASUREMENT CONVERSION# (target pixels to desired flight path and yaw difference)
 
 	#z down
@@ -82,8 +119,7 @@ while True:
 	vecb = vecb/np.linalg.norm(vecb)
 
 	#we are interested in relative yaw angle so the yaw can be assumed zero
-	Rib_image = angle2dcm(0, 
-pitch, roll)
+	Rib_image = angle2dcm(0, pitch, roll)
 	Rbi_image = np.transpose(Rib_image)
 
 	vec = np.dot(Rbi_image,vecb)
@@ -133,7 +169,7 @@ pitch, roll)
 	gam_int = gam_int + gam_d*dt
 
 	#feed-forward
-	throttle_com_ff = m*g/(cos(roll)*cos()*T_max)
+	throttle_com_ff = th0/(cos(roll)*cos(pitch))
 
 	#we may need P and I control here
 	throttle_com = throttle_com_ff - KP_t*gam_d - KI_t*gam_int - KD_t*gam_dot

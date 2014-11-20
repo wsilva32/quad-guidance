@@ -60,9 +60,9 @@ th0 = m*g/T_max;
 global KP_t KI_t KD_t KP_p KI_p KD_p KP_r KI_r KD_r KP_rl KI_rl KD_rl
 
 % throttle
-KP_t = 1;
+KP_t = 0.2;
 KI_t = 0;
-KD_t = 0;
+KD_t = 0.3;
 
 % pitch
 KP_p = 0.05;
