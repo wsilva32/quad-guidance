@@ -11,9 +11,13 @@
 % time settings
 tmax = 300;
 rate = 100;
+target_rate = 15;
 
 dt = 1/rate;
 t = 0:dt:tmax;
+
+% desired vehicle speed
+speed_des = 1;
 
 % PARAMETERS
 
@@ -32,7 +36,7 @@ FoVpv = 320;
 g = 9.807;
 
 % mass
-m = 2;
+m = 1;
 
 % measurement noise
 
@@ -45,13 +49,15 @@ sig_euler = 1*pi/180;
 sig_r = 0.2*pi/180;
 sig_X = [sig_pos*ones(1,3) sig_vel*ones(1,3) sig_euler*ones(1,3) sig_r 0]; %no noise added to the throttle state because this is not measured 
 
+sig_target = 2;
+
 % time delays (first order model)
 global t_const_roll t_const_pitch t_const_yaw_rate t_const_throttle
 % time constants
-t_const_roll = 0.5;
-t_const_pitch = 0.5;
-t_const_yaw_rate = 0.3;
-t_const_throttle = 0.15;
+t_const_roll = 0.1;
+t_const_pitch = 0.1;
+t_const_yaw_rate = 0.01;
+t_const_throttle = 0.01;
 
 
 % wind disturbances
@@ -59,43 +65,43 @@ t_const_throttle = 0.15;
 global sig_w_x sig_w_y sig_w_z Wd
 sig_w_x = 0.15*dt;
 sig_w_y = 0.15*dt;
-sig_w_z = 0.15*dt;
+sig_w_z = 0.45*dt;
 Wd = 0;
 
 
-% max thrust (in real system will be approximate as linear from thrust for
-% level flight)
-T_max = 50;
 
-CDA = 1*0.4;
+% maybe make into three element vector so vertical component is greater
+CDA = 1*0.15;
 
 % target position
-t_pos = [2 1 -0.75];
+t_pos = [1 sin(0.9*FoVh) -sin(0.9*FoVv)];
 
-% desired vehicle speed
-speed_des = 1;
+% hover thrust fraction
+global th0
+th0 = 0.6;
 
-% hover thrust
-th0 = m*g/T_max;
+% max thrust (in real system will be approximate as linear from thrust for
+% level flight)
+T_max = m*g/th0;
 
 % GAINS
 
 global KP_t KI_t KD_t KP_p KI_p KD_p KP_r KI_r KD_r KP_rl KI_rl KD_rl
 
 % throttle
-KP_t = 0.35;
+KP_t = 0.5*target_rate/20;
 KI_t = 0;
-KD_t = 0.3;
+KD_t = 0.4*target_rate/20;
 
 % pitch
-KP_p = 0.55;
+KP_p = 0.35;
 KI_p = 0.2;
 KD_p = 0.08;
 
 % body z rotation rate
-KP_r = 4;
-KI_r = 0;
-KD_r = 1;
+KP_r = 3;
+KI_r = 1;
+KD_r = 0;
 
 % roll
 KP_rl = 2.3;
@@ -105,7 +111,7 @@ KD_rl = 0.2;
 % SIMUALTION SETUP
 
 % initial state (hover)
-x0 = [0 0 0 0 -1.3 0 0 0 0 0 th0];
+x0 = [0 0 0 1 0 0 0 0 0 0 th0];
 
 % loops
 n = length(t);
@@ -117,9 +123,17 @@ x(1,:) = x0;
 
 start = true;
 end_ind = n;
+M = 0;
 for i = 1:n-1
     i
-    target = target_sim(t_pos,x(i,:));
+%     if rem(t(i)*target_rate,1) == 0
+    if t(i) >= M/target_rate
+        target_true = target_sim(t_pos,x(i,:));
+%         noisy target racking
+        target = target_true + sig_target^2*randn(1,2);
+        target = round(target);
+        M = M+1;
+    end
     try
         if noise
             x_meas = x(i,:) + (diag(sig_X.^2)*randn(l,1))';
@@ -132,6 +146,9 @@ for i = 1:n-1
         end_ind = i;
         break
     end
+%     else
+%         u(i,:) = u(i-1,:);
+%     end
     tspan = [t(i) t(i+1)];
     [~,X] = ode45(@simple_quad_dyn,tspan,x(i,:),'',u(i,:));
     x(i+1,:) = X(end,:);

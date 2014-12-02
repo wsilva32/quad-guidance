@@ -10,7 +10,7 @@ function u = quad_control(t,target,x,speed_des,start)
 if nargin == 4 || isempty(start)
     start = false;
 end
-global FoVv FoVh FoVpv FoVph T_max m g
+global FoVv FoVh FoVpv FoVph
 persistent gam_d gam_int speed_err speed_err_int yaw_diff yaw_diff_int sw_slip sw_slip_int step_time
 
 
@@ -51,11 +51,11 @@ if isnan(target(1)) || isnan(target(2))
         'Target Lost');
     throw(ME);
 end
-% previous error for differentiators
-gam_d_m1 = gam_d;
-speed_err_m1 = speed_err;
-yaw_diff_m1 = yaw_diff;
-sw_slip_m1 = sw_slip;
+% % previous error for differentiators
+% gam_d_m1 = gam_d;
+% speed_err_m1 = speed_err;
+% yaw_diff_m1 = yaw_diff;
+% sw_slip_m1 = sw_slip;
 
 % time step
 if start || isempty(step_time)
@@ -67,7 +67,7 @@ else
     dt = step_time - step_time_m1;
 end
 
-global KP_t KI_t KD_t KP_p KI_p KD_p KP_r KI_r KD_r KP_rl KI_rl KD_rl
+global KP_t KI_t KD_t KP_p KI_p KD_p KP_r KI_r KD_r KP_rl KI_rl KD_rl th0
 % % GAINS
 % 
 % % throttle
@@ -92,9 +92,9 @@ global KP_t KI_t KD_t KP_p KI_p KD_p KP_r KI_r KD_r KP_rl KI_rl KD_rl
 
 % SATURATION LIMITS
 
-roll_sat = 20;
-pitch_sat = 20;
-r_sat = 2;
+roll_sat = 20*pi/180;
+pitch_sat = 10*pi/180;
+r_sat = 360*pi/180;
 throttle_sat =1;
 
 % CONSTANTS
@@ -214,7 +214,15 @@ else
     Pk_plus_t         = (eye(2) - K_t*H_til)*P_bar_t;
     gam_dot     = xk_plus_t(2);
 end
-
+persistent gam_target
+if start
+    gam_target = gam_d;
+    gam_target = gam_d*0.85;
+%     gam_target = 0;
+end
+if isempty(gam_target)
+    gam_target = 0;
+end
 % integrator
 gam_int = gam_int + gam_d*dt;
 
@@ -222,12 +230,22 @@ gam_int = gam_int + gam_d*dt;
 % need
 % cos(x(7))*cos(x(8))*T - m*g = 0
 % T = m*g/cos(x(7))*cos(x(8));
-throttle_com_ff = m*g/(cos(x(7))*cos(x(8))*T_max);
+throttle_com_ff = th0/(cos(x(7))*cos(x(8)));
 
 % we may need P and I control here 
 % neglect derivative control to allow estimator time to converge
 % if t>1
-throttle_com = throttle_com_ff - KP_t*gam_d - KI_t*gam_int - KD_t*gam_dot;
+
+% factor = 2;
+% KP_t_u = KP_t*exp(-gam_dot/factor);
+% KD_t_u = KD_t*exp(gam_dot/factor);
+
+
+KP_t_u = KP_t;
+KD_t_u = KD_t;
+
+
+throttle_com = throttle_com_ff - KP_t_u*(gam_d-gam_target) - KI_t*gam_int - KD_t_u*gam_dot;
 % else
 %     throttle_com = throttle_com_ff - KP_t*gam_d - KI_t*gam_int;
 % end
@@ -312,6 +330,7 @@ speed_err_int = speed_err_int + speed_err*dt;
 if speed_err<0.01
     speed_err_int = 0;
 end
+
 
 % pitch down speeds you up
 pitch_com = KP_p*speed_err + KI_p*speed_err_int + KD_p*speed_err_dot;

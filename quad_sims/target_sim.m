@@ -40,7 +40,7 @@ else
     rangeh = FoVph/tan(FoVh);
     rangev = FoVpv/tan(FoVv);
     
-    target = [rangeh*tan(az) rangev*tan(el)];
+    target = round([rangeh*tan(az) rangev*tan(el)]);
     
 end
 end
