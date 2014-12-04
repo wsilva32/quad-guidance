@@ -1,9 +1,8 @@
-#import vrpn
+
 import threading
 import vrpn
 import transformations
 import math
-
 
 class ViconPosition(threading.Thread):
     def __init__(self, m_hostName=None):
@@ -19,24 +18,25 @@ class ViconPosition(threading.Thread):
     def stopped(self):
         return self._stop.isSet()
 
-    def tracker_callback(self, userdata,packet):
+    def tracker_callback(self, userdata, packet):
         #print packet
-        fixed_axes = (packet[7], packet[4], packet[5], packet[6])
+        quat = packet['quaternion']
+        fixed_axes = (quat[3], quat[0], quat[1], quat[2])
         
         #print fixed_axes
         angles = transformations.euler_from_quaternion(fixed_axes, 'rxyz')
         #print angles
         rad2deg = 180 / math.pi
-        #print "CB: X: %1.4f \tY: %1.4f \tZ: %1.4f \tRoll: %1.4f \tPitch: %1.4f \tYaw: %1.4f" % \
-        #     (packet[1], packet[2], packet[3], angles[1]*rad2deg, angles[0]*rad2deg, angles[2]*rad2deg)
-        self.position = (packet[1], packet[2], packet[3])
+        
+        self.position = packet['position']
         self.angles = (angles[1]*rad2deg, angles[0]*rad2deg, angles[2]*rad2deg)
-
+        #print "CB: X: %1.4f \tY: %1.4f \tZ: %1.4f \tRoll: %1.4f \tPitch: %1.4f \tYaw: %1.4f" % \
+        #     (self.position[0], self.position[1], self.position[2], self.angles[0], self.angles[1], self.angles[2])
     def run(self):
-        t=vrpn_Tracker.vrpn_Tracker_Remote(self.hostName)
-        vrpn_Tracker.register_tracker_change_handler(self.tracker_callback)
-        vrpn_Tracker.vrpn_Tracker_Remote.register_change_handler(t,None,vrpn_Tracker.get_tracker_change_handler())
+        track=vrpn.receiver.Tracker(self.hostName)
+
+        track.register_change_handler(self,self.tracker_callback, "position", 0)
 
         while not self.stopped():
-            vrpn_Tracker.vrpn_Tracker_Remote.mainloop(t)
+            track.mainloop()
 
