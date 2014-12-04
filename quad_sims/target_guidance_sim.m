@@ -11,7 +11,7 @@
 % time settings
 tmax = 300;
 rate = 100;
-target_rate = 15;
+target_rate = 10;
 
 dt = 1/rate;
 t = 0:dt:tmax;

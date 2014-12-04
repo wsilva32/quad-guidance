@@ -30,24 +30,24 @@ t_pos = np.array([[100], [30], [10]])
 
 #GAINS#
 #throttle
-KP_t = 1
+KP_t = 0.25
 KI_t = 0
-KD_t = 0
+KD_t = 0.2
 
 #pitch
-KP_p = 0.05
-KI_p = 0
-KD_p = 0
+KP_p = 0.35
+KI_p = 0.3
+KD_p = 0.08
 
 #body z rotation rate
-KP_r = 1
-KI_r = 0
+KP_r = 3
+KI_r = 1
 KD_r = 0
 
 #roll
-KP_rl = 1
+KP_rl = 2.3
 KI_rl = 0
-KD_rl = 0
+KD_rl = 0.2
 
 #SATURATION LIMITS#
 roll_sat = 20
@@ -79,28 +79,53 @@ rangeh = FoVph/tan(FoVh)
 rangev = FoVpv/tan(FoVv)
 start = True
 prev = time.time()
+gam_target = 0;
+
 while True:
 
 	#get the time step
 	dt = time.time() - prev
 	prev = time.time()
-	#Get velocity (vel), roll and pitch
+	#Get velocity (vel), roll and pitch (roll and pitch from aircraft velocity from filtering vicon)
 	roll = msg.roll
 	pitch = msg.pitch
+	
+	#position from vicon
+	pos_vic
 
+	#could all be moved ahead of the loop
+	R_vic = np.identity(3)*0.001
+	Q_vic = np.identity(6)*0.1
+	P_bar_0_vic = np.identity(6)
+	x_bar0_vic = np.concatenate([pos_vic, np.array([0, 0,0])])
+	
+	#estimate the velocity (would like tomove this to a paralell operation at higher rate, will need dt calculated in that loop as well)
+	if start:
+		vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic)
+	
+	else
+		vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic,Pk_vic,x_vic)
+	
+	Pk_vic = vkf[1]
+	x_vic = vkf[0]
+	vel_i = x_vic[0:2]
+	
+	#rotate inertial frame velocity to aircraft frame
+	vel = rotate(vel_i,euler/quat)
+	
 	#get the target position in the image
 	
-	# get the position and yaw (needed only for SiL, may be needed later for search phase but that should come from Vicon)
-	yaw = msg.yaw
+	## get the position and yaw (needed only for SiL, may be needed later for search phase but that should come from Vicon)
+	#yaw = msg.yaw
+	#
+	#lat = msg.lat/(10**7)
+	#lon = msg.lon/(10**7)
+	#alt = msg.alt/1000
 	
-	lat = msg.lat/(10**7)
-	lon = msg.lon/(10**7)
-	alt = msg.alt/1000
-	
- 	pos = lla2flatdumb(lat,lon,alt,lat0,lon0,alt0)
-	x = pos[0]
-	y = pos[1]
-	z = pos[2]
+ 	#pos = lla2flatdumb(lat,lon,alt,lat0,lon0,alt0)
+	#x = pos[0]
+	#y = pos[1]
+	#z = pos[2]
 	
 	# simulate the target for SiL
 	
@@ -163,22 +188,28 @@ while True:
 	else:
 		KF_gam = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,gam_d,Pk_gam,xk_gam)
 	Pk_gam = KF_gam[1]
-	xk_gam = KF_gam[2]
-	gam_dot = xk_gam[2]
+	xk_gam = KF_gam[0]
+	gam_dot = xk_gam[1]
 	#integrator
 	gam_int = gam_int + gam_d*dt
+
+	#target angle
+	if start
+		gam_target = gam_d;
 
 	#feed-forward
 	throttle_com_ff = th0/(cos(roll)*cos(pitch))
 
 	#we may need P and I control here
-	throttle_com = throttle_com_ff - KP_t*gam_d - KI_t*gam_int - KD_t*gam_dot
+	throttle_com = throttle_com_ff - KP_t*(gam_d - gam_target) - KI_t*gam_int - KD_t*gam_dot
 
 	#throttle saturation
 	if throttle_com > throttle_sat:
 		throttle_com = throttle_sat
 	else if throttle_com < 0:
 		throttle_com = 0
+	
+	
 
 	#SPEED CONTROL#
 
@@ -203,8 +234,8 @@ while True:
 	else:
 		KF_speed_err = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,speed_err,Pk_speed_err,xk_speed_err)
 	Pk_speed_err = KF_speed_err[1]
-	xk_speed_err = KF_speed_err[2]
-	speed_err_dot = xk_speed_err[2]
+	xk_speed_err = KF_speed_err[0]
+	speed_err_dot = xk_speed_err[1]
 	#integrator
 	speed_err_int = speed_err_int + speed_err*dt
 
@@ -229,8 +260,8 @@ while True:
 	else:
 		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff,Pk_yaw_diff,xk_yaw_diff)
 	Pk_yaw_diff = KF_yaw_diff[1]
-	xk_yaw_diff = KF_yaw_diff[2]
-	yaw_diff_dot = xk_yaw_diff[2]
+	xk_yaw_diff = KF_yaw_diff[0]
+	yaw_diff_dot = xk_yaw_diff[1]
 	#integator
 	yaw_diff_int = yaw_diff_int + yaw_diff*dt
 
@@ -258,8 +289,8 @@ while True:
 	else:
 		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,sw_slip,Pk_sw_slip,xk_sw_slip)
 	Pk_sw_slip = KF_sw_slip[1]
-	xk_sw_slip = KF_sw_slip[2]
-	sw_slip_dot = xk_sw_slip[2]
+	xk_sw_slip = KF_sw_slip[0]
+	sw_slip_dot = xk_sw_slip[1]
 	#integrator
 	sw_slip_int = sw_slip_int + sw_slip*dt
 
