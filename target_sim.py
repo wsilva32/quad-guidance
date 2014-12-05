@@ -2,7 +2,7 @@ import numpy as np
 from math import *
 from attitude_tools import angle2dcm
 
-def target_sim(t_pos,x,y,z,roll,pitch,yaww,FoVv, FoVh, FoVpv, FoVph)
+def target_sim(t_pos,x,y,z,roll,pitch,yaww,FoVv, FoVh, FoVpv, FoVph):
 
 #if size(t_pos,1) == 1
 #    t_pos = t_pos'

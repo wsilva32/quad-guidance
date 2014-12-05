@@ -1,15 +1,23 @@
 #!/usr/bin/env python
 
 #Imports
-import sys, struct, time, os
+import sys, struct, time, os, signal
 from pymavlink import mavutil
 import numpy as np
 from math import *
 from attitude_tools import angle2dcm
 from KF_error import error_derivative_KF
-from coord_trans import lla2flatdumb
-from target_sim import target_sim
+from velocity_KF import velocity_KF
+from coordtrans import lla2flatdumb
+#from target_sim import target_sim
+#import Position
 #Define functions
+def signal_handler(signal, frame):
+    global v
+    print('Exiting controller')
+    v.stop()
+    sys.exit(0)
+
 def wait_heartbeat(m):
 	'''wait for a heartbeat so we know the target system IDs'''
 	print("Waiting for APM heartbeat")
@@ -17,6 +25,17 @@ def wait_heartbeat(m):
 	print("Heartbeat from APM (system %u component %u)" % (m.target_system, m.target_system))
 
 #Program Start
+# create a mavlink serial instance
+#master = mavutil.mavlink_connection('udp:127.0.0.1:14551', baud=115200)
+
+# wait for the heartbeat msg to find the system ID
+#wait_heartbeat(master)
+
+#Setup Vicon connection
+#v = 0
+#signal.signal(signal.SIGINT, signal_handler)
+#v = Position.ViconPosition("Wand2@192.168.20.10")
+#v.start()
 
 #TARGET INFO(for SiL only)#
 #desired coordinate center (datum)
@@ -27,7 +46,8 @@ alt0 = 1680.38
 t_pos = np.array([[100], [30], [10]])
 #NOTE: need a way to ensure we are pointed towars the target before begining so we can see it in the image (maybe just command a reasonably close yaw?)
 
-
+#target speed
+speed_des = 1
 #GAINS#
 #throttle
 KP_t = 0.25
@@ -83,36 +103,48 @@ gam_target = 0;
 
 while True:
 
+	#master.mav.request_data_stream_send(master.target_system, master.target_component,mavutil.mavlink.MAV_DATA_STREAM_ALL, 25, 1)
+	#msg = master.recv_match(type='ATTITUDE',blocking=False)
+
 	#get the time step
 	dt = time.time() - prev
 	prev = time.time()
-	#Get velocity (vel), roll and pitch (roll and pitch from aircraft velocity from filtering vicon)
-	roll = msg.roll
-	pitch = msg.pitch
+	#Get velocity (vel), roll and pitch (roll and pitch from aircraft, velocity from filtering vicon)
+	#roll = msg.roll
+	#pitch = msg.pitch
+	#yaw = v.angles[2] #verify what order angles is in
 	
 	#position from vicon
-	pos_vic
+    #pos_vic = v.position
+	#print pos_vic
+
+	#simulate vicon and IMU data
+	roll = 0
+	pitch = 0
+	yaw = 0
+	pos_vic = np.array([0,0,0])
 
 	#could all be moved ahead of the loop
 	R_vic = np.identity(3)*0.001
 	Q_vic = np.identity(6)*0.1
 	P_bar_0_vic = np.identity(6)
 	x_bar0_vic = np.concatenate([pos_vic, np.array([0, 0,0])])
-	
+	x_bar0_vic = x_bar0_vic.reshape((6, 1))
 	#estimate the velocity (would like tomove this to a paralell operation at higher rate, will need dt calculated in that loop as well)
 	if start:
-		vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic)
-	
-	else
-		vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic,Pk_vic,x_vic)
+		vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic.reshape((3,1)))
+		#print x_bar0_vic
+	else:
+		vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic.reshape((3,1)),Pk_vic,x_vic)
 	
 	Pk_vic = vkf[1]
 	x_vic = vkf[0]
-	vel_i = x_vic[0:2]
-	
+	vel_i = x_vic[0:3]
+	#print x_vic
+	#print vel_i
 	#rotate inertial frame velocity to aircraft frame
-	vel = rotate(vel_i,euler/quat)
-	
+	Rib = angle2dcm(yaw,roll,pitch)
+	vel = np.dot(Rib,vel_i)
 	#get the target position in the image
 	
 	## get the position and yaw (needed only for SiL, may be needed later for search phase but that should come from Vicon)
@@ -129,16 +161,16 @@ while True:
 	
 	# simulate the target for SiL
 	
-	target_sim(t_pos,x,y,z,roll,pitch,yaw,FoVv, FoVh, FoVpv, FoVph)
+	#target_sim(t_pos,x,y,z,roll,pitch,yaw,FoVv, FoVh, FoVpv, FoVph)
 	
 	#MEASUREMENT CONVERSION# (target pixels to desired flight path and yaw difference)
 
 	#z down
-	el = atan2(-target[2], rangev)
-	az = atan2(target[1], rangeh)
+	el = atan2(-target[1], rangev)
+	az = atan2(target[0], rangeh)
 
 	#vector to the virtual plane point
-	vecb = np.array([1], [tan(az)], [tan(el)])
+	vecb = np.array([[1], [tan(az)], [tan(el)]])
 
 	#normalize
 	vecb = vecb/np.linalg.norm(vecb)
@@ -150,9 +182,9 @@ while True:
 	vec = np.dot(Rbi_image,vecb)
 
 	#desired flightpath angle (positive is below horizon)
-	gam_d = np.arctan2(vec[3],vec[1])
+	gam_d = np.arctan2(vec[2],vec[0])
 	#yaw difference (positve is to the right of the vehicle)
-	yaw_diff = np.arctan2(vec[2],vec[1])
+	yaw_diff = np.arctan2(vec[1],vec[0])
 
 	#the controller error quantities are the yaw_diff and gam_d
 
@@ -179,9 +211,11 @@ while True:
 
 	#ALTITUDE CONTROL#
 	#differentiator
-	P_bar_0 = np.diag(np.array([0.01, 1])^2)
-	x_bar0 = np.transpose(np.array([gam_d, 0]))
-	Q = np.diag(np.array([0.01, 0.3])^2)
+	#print np.power(np.array([0.01, 1]),2)
+	P_bar_0 = np.diag(np.power(np.array([0.01, 1]),2))
+	x_bar0 = np.concatenate([gam_d, np.array([0])]).reshape(2,1)
+	#print x_bar0
+	Q = np.diag(np.power(np.array([0.01, 0.3]),2))
 	R = 1*pi/180
 	if start:
 		KF_gam = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,gam_d)
@@ -190,11 +224,14 @@ while True:
 	Pk_gam = KF_gam[1]
 	xk_gam = KF_gam[0]
 	gam_dot = xk_gam[1]
+	print Pk_gam
 	#integrator
-	gam_int = gam_int + gam_d*dt
+	if start:
+		gam_int = 0;
+	gam_int += gam_d*dt
 
 	#target angle
-	if start
+	if start:
 		gam_target = gam_d;
 
 	#feed-forward
@@ -204,9 +241,10 @@ while True:
 	throttle_com = throttle_com_ff - KP_t*(gam_d - gam_target) - KI_t*gam_int - KD_t*gam_dot
 
 	#throttle saturation
+	#print KD_t*gam_dot
 	if throttle_com > throttle_sat:
 		throttle_com = throttle_sat
-	else if throttle_com < 0:
+	elif throttle_com < 0:
 		throttle_com = 0
 	
 	
@@ -219,8 +257,8 @@ while True:
 
 	#forward speed from state
 	#with GPS/Vicon type measurements convert this to just use the horizontal velocity in the inertial frame
-	vel = np.dot(Rbi_image,np.array([x[4]], [x[5]], [x[6]]))
-	speed = vel[1]
+	vel_f = np.dot(Rbi_image,vel)
+	speed = vel_f[0]
 
 	speed_err = speed - speed_des
 
@@ -245,7 +283,7 @@ while True:
 	#pitch saturation
 	if pitch_com > pitch_sat:
 		pitch_com = pitch_sat
-	else if pitch_com < -pitch_sat:
+	elif pitch_com < -pitch_sat:
 		pitch_com = -pitch_sat;
 
 	#YAW CONTROL#
@@ -271,7 +309,7 @@ while True:
 	#r saturation
 	if r_com > r_sat:
 		r_com = r_sat
-	else if r_com < -r_sat:
+	elif r_com < -r_sat:
 		r_com = -r_sat
 
 	#ROLL CONTROL#
@@ -300,11 +338,11 @@ while True:
 	#roll saturation
 	if roll_com > roll_sat:
 		roll_com = roll_sat
-	else if roll_com < -roll_sat:
+	elif roll_com < -roll_sat:
 		roll_com = -roll_sat
 
 	#COMMAND#
-	u = [pitch_com roll_com r_com throttle_com]
+	u = [pitch_com, roll_com, r_com, throttle_com]
 	start = False
 
 
@@ -325,11 +363,7 @@ while True:
 
 
 
-# create a mavlink serial instance
-master = mavutil.mavlink_connection('udp:127.0.0.1:14551', baud=115200)
 
-# wait for the heartbeat msg to find the system ID
-wait_heartbeat(master)
 
 #Download state information
 while True:
