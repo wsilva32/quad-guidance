@@ -1,6 +1,7 @@
 import Position
 import signal
 import sys
+import time
 
 v = 0
 def signal_handler(signal, frame):
@@ -14,7 +15,7 @@ v = Position.ViconPosition("Wand2@192.168.20.10")
 v.start()
 while (1):
     print 'Z: %1.4f' % v.position[2]
-
+    time.sleep(1)
 
 
 
