@@ -14,7 +14,7 @@ def error_derivative_KF(start,P_bar_0,x_bar_0,dt,Q,R,z,Pk=0,xk=0):
 		x_bar = x_bar_0
 	else:
 		P_bar = np.dot(np.dot(phi,Pk),np.transpose(phi)) + Q
-		x_bar = phi*xk
+		x_bar = np.dot(phi, xk)
 	#Measurement Update
 	#print 
 	y               = z - np.dot(H_til,x_bar)
