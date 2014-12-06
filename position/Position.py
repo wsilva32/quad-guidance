@@ -3,6 +3,7 @@ import threading
 import vrpn
 import transformations
 import math
+import time
 
 class ViconPosition(threading.Thread):
     def __init__(self, m_hostName=None):
@@ -39,4 +40,5 @@ class ViconPosition(threading.Thread):
 
         while not self.stopped():
             track.mainloop()
+            time.sleep(0.001)
 
