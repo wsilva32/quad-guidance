@@ -115,7 +115,10 @@ class BalloonFinder(threading.Thread):
                 self.area = imgData[2]
                 self.centroid = (imgData[0]-self.centerX, imgData[1]-self.centerY)
                 #print 'Area of max: %d Centroid (%d,%d)' % (imgData[2], imgData[0], imgData[1])
-                
+            else:
+                self.area = 0
+                self.centroid = (0,0)
+
             loopTime = getMilliTime()
             #print 'Elapsed ms/frame: %s' % (loopTime - lastTime)
             self.frameRate = 1 / float(loopTime - lastTime) * 1000
