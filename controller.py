@@ -17,6 +17,12 @@ import transformations
 
 #from target_sim import target_sim
 
+#Constants
+vicon_object = "Flamewheel"
+#vicon_object = "wolverine"
+
+runtimeMode = 'debug'
+
 #Define functions
 def signal_handler(signal, frame):
     global v
@@ -33,10 +39,13 @@ def wait_heartbeat(m):
 
 #Program Start
 # create a mavlink serial instance
-master = mavutil.mavlink_connection('/dev/ttyACM0', baud=115200)
+if runtimeMode != 'debug':
+    #master = mavutil.mavlink_connection('/dev/ttyACM0', baud=115200)
+    master = mavutil.mavlink_connection('/dev/ttyUSB0', baud=115200)
+
 
 # wait for the heartbeat msg to find the system ID
-wait_heartbeat(master)
+#wait_heartbeat(master)
 
 #Setup Vicon connection
 #v = 0
@@ -68,7 +77,7 @@ KD_p = 0.08
 
 #body z rotation rate
 KP_r = 3
-KI_r = 1
+KI_r = 0
 KD_r = 0
 
 #roll
@@ -144,24 +153,31 @@ print 'Area: %d Centroid: (%d,%d) FPS: %1.2f' % (cam.area, cam.centroid[0], cam.
 #Initialize vicon system
 v=0
 signal.signal(signal.SIGINT, signal_handler)
-v = Position.ViconPosition("Flamewheel@192.168.20.10")
+v = Position.ViconPosition(vicon_object + "@192.168.20.10")
 v.start()
 print 'Z: %1.4f' % v.position[2]
 
-sleep(5)
+time.sleep(5)
+getMilliTime = lambda: int(round(time.time() * 1000))
 
 while True:
+        loopStart = getMilliTime()
 
-	master.mav.request_data_stream_send(master.target_system, master.target_component,mavutil.mavlink.MAV_DATA_STREAM_ALL, 25, 1)
-	msg = master.recv_match(type='ATTITUDE',blocking=True)
+        #if runtimeMode != 'debug':
+        #    master.mav.request_data_stream_send(master.target_system, master.target_component,mavutil.mavlink.MAV_DATA_STREAM_ALL, 25, 1)
+        #    msg = master.recv_match(type='ATTITUDE',blocking=True)
+
+        mavlinkTime = getMilliTime()
 
 	#get the time step
 	dt = time.time() - prev
 	prev = time.time()
 	#Get velocity (vel), roll and pitch (roll and pitch from aircraft, velocity from filtering vicon)
-	roll = msg.roll
-	pitch = msg.pitch
-	yaw = v.angles[2] #verify what order angles is in
+	#roll = msg.roll
+	#pitch = msg.pitch
+	roll = v.angles[0]
+        pitch = v.angles[1]
+        yaw = v.angles[2] #verify what order angles is in
 
 	pos_vic = np.array(v.position);
 
@@ -170,7 +186,7 @@ while True:
 	pos_vic[1] = -pos_vic[1]
 	pos_vic[2] = -pos_vic[2]
 
-	print pos_vic
+	#print pos_vic
 
 	#simulate vicon and IMU data
 	#roll = 0
@@ -182,28 +198,42 @@ while True:
 	#get target location in pixels
 
 	target = np.array([cam.centroid[0],cam.centroid[1]]);
+        print 'Cam framerate: %f' % cam.frameRate
 
-	#could all be moved ahead of the loop
-	R_vic = np.identity(3)*0.001
-	Q_vic = np.identity(6)*0.1
-	P_bar_0_vic = np.identity(6)
-	x_bar0_vic = np.concatenate([pos_vic, np.array([0,0,0])])
-	x_bar0_vic = x_bar0_vic.reshape((6, 1))
-	#estimate the velocity (would like tomove this to a paralell operation at higher rate, will need dt calculated in that loop as well)
-	if start:
-		vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic.reshape((3,1)))
-		#print x_bar0_vic
-	else:
-		vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic.reshape((3,1)),Pk_vic,x_vic)
+        acquireTime = getMilliTime()
+
+        if (cam.area == 0):
+            print 'Mav Time: %f' % (mavlinkTime - loopStart)
+            print 'Acq time: %f' % (acquireTime - mavlinkTime) 
+            print 'go to search'
+            continue
+
+       
+
+        #could all be moved ahead of the loop
+        R_vic = np.identity(3)*0.001**2
+        Q_vic = np.identity(6)*0.1**2
+        P_bar_0_vic = np.identity(6)
+        x_bar0_vic = np.concatenate([pos_vic, np.array([0,0,0])])
+        x_bar0_vic = x_bar0_vic.reshape((6, 1))
+        #estimate the velocity (would like tomove this to a paralell operation at higher rate, will need dt calculated in that loop as well)
+        if start:
+            vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic.reshape((3,1)))
+            #print x_bar0_vic
+        else:
+            vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic.reshape((3,1)),Pk_vic,x_vic)
 
 	Pk_vic = vkf[1]
 	x_vic = vkf[0]
-	vel_i = x_vic[0:3]
+	vel_i = x_vic[3:6]
 	#print x_vic
 	#print vel_i
 	#rotate inertial frame velocity to aircraft frame
 	Rib = angle2dcm(yaw,roll,pitch)
 	vel = np.dot(Rib,vel_i)
+        print 'Vel: %f %f %f' % (vel[0], vel[1], vel[2])
+
+        velTime = getMilliTime()
 
 	## get the position and yaw (needed only for SiL, may be needed later for search phase but that should come from Vicon)
 	#yaw = msg.yaw
@@ -291,7 +321,7 @@ while True:
 	#target angle
 	if start:
 		gam_target = gam_d;
-	print gam_d
+	#print gam_d
 	#feed-forward
 	throttle_com_ff = th0/(cos(roll)*cos(pitch))
 
@@ -370,18 +400,18 @@ while True:
 	#YAW CONTROL#
 	#differentiator
 	#print np.power(np.array([0.01, 1]),2)
-	P_bar_0 = np.diag(np.power(np.array([0.1, 1]),2))
-	x_bar0 = np.concatenate([yaw_diff, np.array([0])]).reshape(2,1)
+	#P_bar_0 = np.diag(np.power(np.array([0.1, 1]),2))
+	#x_bar0 = np.concatenate([yaw_diff, np.array([0])]).reshape(2,1)
 	#print x_bar0
-	Q = np.diag(np.power(np.array([0.01, 0.3]),2))
-	R = 1*pi/180
-	if start:
-		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff)
-	else:
-		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff,Pk_yaw_diff,xk_yaw_diff)
-	Pk_yaw_diff = KF_yaw_diff[1]
-	xk_yaw_diff = KF_yaw_diff[0]
-	yaw_diff_dot = xk_yaw_diff[1]
+	#Q = np.diag(np.power(np.array([0.01, 0.3]),2))
+	#R = 1*pi/180
+	#if start:
+#		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff)
+#	else:
+#		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff,Pk_yaw_diff,xk_yaw_diff)
+#	Pk_yaw_diff = KF_yaw_diff[1]
+#	xk_yaw_diff = KF_yaw_diff[0]
+#	yaw_diff_dot = xk_yaw_diff[1]
 	#    print xk_yaw_diff
 	#integrator
 	if start:
@@ -404,6 +434,7 @@ while True:
 	#yaw_diff_int = yaw_diff_int + yaw_diff*dt
 
 	#command
+        yaw_diff_dot = 0
 	r_com = KP_r*yaw_diff + KI_r*yaw_diff_int + KD_r*yaw_diff_dot
 
 	#r saturation
@@ -463,14 +494,13 @@ while True:
 		roll_com = -roll_sat
 
 	#COMMAND#
-	u = [pitch_com, roll_com, r_com, throttle_com]
+	u = [pitch_com, roll_com, -r_com, throttle_com]
 	
-	print "Pitch: %f" % u[0]
-	print "Roll: %f" % u[1]
-	print "Yaw Rate: %f" % u[2]
-	print "Throttle: %f" % u[3]
-	
-	
+	#print "Pitch: %f Roll: %f YawRate: %f Throttle: %f" % (u[0], u[1], u[2], u[3])
+        print 'Mav Time: %f' % (mavlinkTime - loopStart)
+	print 'Acq time: %f' % (acquireTime - mavlinkTime) 
+	print 'Vel time: %f' % (velTime - acquireTime)
+	print 'Control time: %f' % (getMilliTime() - velTime)
 	#    convert to commands
 	data = [ 0 ] * 8
 
@@ -504,12 +534,10 @@ while True:
 
 	data[0:4] = [RC1_cmd, RC2_cmd,  RC3_cmd,  RC4_cmd]
 
-	print "RC1: %f" % RC1_cmd
-	print "RC2: %f" % RC2_cmd
-	print "RC3: %f" % RC3_cmd
-	print "RC4: %f" % RC4_cmd
-
-	master.mav.rc_channels_override_send(master.target_system, master.target_component, *data)
+	#print "RC1: %f RC2: %f RC3: %f RC4: %f" % (RC1_cmd, RC2_cmd, RC3_cmd, RC4_cmd)
+	
+        if runtimeMode != 'debug':
+            master.mav.rc_channels_override_send(master.target_system, master.target_component, *data)
 
 	start = False
 
