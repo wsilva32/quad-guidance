@@ -10,8 +10,11 @@ from KF_error import error_derivative_KF
 from velocity_KF import velocity_KF
 from coordtrans import lla2flatdumb
 from cmd_saturate import cmd_saturate
-#import Position
-#import transformations
+import camera.BalloonFinder
+import signal
+import Position
+import transformations
+
 #from target_sim import target_sim
 
 #Define functions
@@ -19,6 +22,7 @@ def signal_handler(signal, frame):
     global v
     print('Exiting controller')
     v.stop()
+    cam.stop()
     sys.exit(0)
 
 def wait_heartbeat(m):
@@ -112,8 +116,6 @@ LIM_ROLL = 4500.00000/100 * pi/180;
 
 LIM_YAW_RATE = 4.500000*200/4.5 * pi/180;
 
-
-
 #max thrust
 
 #field of view from center in degrees
@@ -131,6 +133,23 @@ start = True
 prev = time.time()
 gam_target = 0;
 
+#Initialize camera balloon tracking routine
+cam = 0
+signal.signal(signal.SIGINT, signal_handler)
+cam = camera.BalloonFinder.BalloonFinder(320,240)
+cam.start()
+print 'Current video size: %dx%d' % (cam.vidSize[0], cam.vidSize[1])
+print 'Area: %d Centroid: (%d,%d) FPS: %1.2f' % (cam.area, cam.centroid[0], cam.centroid[1], cam.frameRate)
+
+#Initialize vicon system
+v=0
+signal.signal(signal.SIGINT, signal_handler)
+v = Position.ViconPosition("Flamewheel@192.168.20.10")
+v.start()
+print 'Z: %1.4f' % v.position[2]
+
+sleep(5)
+
 while True:
 
 	master.mav.request_data_stream_send(master.target_system, master.target_component,mavutil.mavlink.MAV_DATA_STREAM_ALL, 25, 1)
@@ -142,28 +161,33 @@ while True:
 	#Get velocity (vel), roll and pitch (roll and pitch from aircraft, velocity from filtering vicon)
 	roll = msg.roll
 	pitch = msg.pitch
-	#~ yaw = v.angles[2] #verify what order angles is in
+	yaw = v.angles[2] #verify what order angles is in
+
+	pos_vic = np.array(v.position);
 
 	#position from vicon (invert y and z to flip into z down coordinate frame)
-	#~ pos_vic_fence = pos_vic
-	#~ pos_vic[1] = -pos_vic[1]
-	#~ pos_vic[2] = -pos_vic[2]
+	pos_vic_fence = pos_vic
+	pos_vic[1] = -pos_vic[1]
+	pos_vic[2] = -pos_vic[2]
 
-	#print pos_vic
+	print pos_vic
 
 	#simulate vicon and IMU data
 	#roll = 0
 	#pitch = 0
-	yaw = 0
-	pos_vic = np.array([0,0,0])
+	#yaw = 0
+	#pos_vic = np.array([0,0,0])
 	#simulate target
-	target = np.array([50,  -100])
+	#target = np.array([50,  -100])
+	#get target location in pixels
+
+	target = np.array([cam.centroid[0],cam.centroid[1]);
 
 	#could all be moved ahead of the loop
 	R_vic = np.identity(3)*0.001
 	Q_vic = np.identity(6)*0.1
 	P_bar_0_vic = np.identity(6)
-	x_bar0_vic = np.concatenate([pos_vic, np.array([0, 0,0])])
+	x_bar0_vic = np.concatenate([pos_vic, np.array([0,0,0])])
 	x_bar0_vic = x_bar0_vic.reshape((6, 1))
 	#estimate the velocity (would like tomove this to a paralell operation at higher rate, will need dt calculated in that loop as well)
 	if start:
