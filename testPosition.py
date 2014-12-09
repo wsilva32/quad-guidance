@@ -1,4 +1,4 @@
-import Position
+from position import FakePosition
 import signal
 import sys
 import time
@@ -11,7 +11,8 @@ def signal_handler(signal, frame):
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
-v = Position.ViconPosition("Flamewheel@192.168.20.10")
+#v = Position.ViconPosition("Flamewheel@192.168.20.10")
+v = FakePosition.FakePosition(1.2, 1.2, 1.2)
 v.start()
 while (1):
     print 'Z: %1.4f' % v.position[2]
