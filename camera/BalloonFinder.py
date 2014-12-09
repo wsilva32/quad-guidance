@@ -8,6 +8,8 @@ class BalloonFinder(threading.Thread):
         super(BalloonFinder, self).__init__()
         self._stop = threading.Event()
         self.vidSize = (m_width, m_height)
+        self.centerX = int(m_width/2)
+        self.centerY = int(m_height/2)
         self.area = 0
         self.centroid = (0,0)
         self.frameRate = 0.0
@@ -111,7 +113,7 @@ class BalloonFinder(threading.Thread):
             imgData = self.findBalloon(frame)
             if imgData:
                 self.area = imgData[2]
-                self.centroid = (imgData[0], imgData[1])
+                self.centroid = (imgData[0]-self.centerX, imgData[1]-self.centerY)
                 #print 'Area of max: %d Centroid (%d,%d)' % (imgData[2], imgData[0], imgData[1])
                 
             loopTime = getMilliTime()
