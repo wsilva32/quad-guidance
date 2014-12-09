@@ -5,13 +5,13 @@ import sys, struct, time, os, signal
 from pymavlink import mavutil
 import numpy as np
 from math import *
+import signal
 from attitude_tools import angle2dcm
 from KF_error import error_derivative_KF
 from velocity_KF import velocity_KF
 from coordtrans import lla2flatdumb
 from cmd_saturate import cmd_saturate
 import camera.BalloonFinder
-import signal
 import Position
 import transformations
 
@@ -181,7 +181,7 @@ while True:
 	#target = np.array([50,  -100])
 	#get target location in pixels
 
-	target = np.array([cam.centroid[0],cam.centroid[1]);
+	target = np.array([cam.centroid[0],cam.centroid[1]]);
 
 	#could all be moved ahead of the loop
 	R_vic = np.identity(3)*0.001
