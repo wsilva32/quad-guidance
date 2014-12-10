@@ -154,6 +154,16 @@ print 'Z: %1.4f' % v.position[2]
 time.sleep(5)
 getMilliTime = lambda: int(round(time.time() * 1000))
 
+#Velocity KF inputs
+#could all be moved ahead of the loop
+pos_vic = np.array(v.position);
+R_vic = np.identity(3)*0.001**2
+Q_vic = np.identity(6)*0.1**2
+P_bar_0_vic = np.identity(6)
+x_bar0_vic = np.concatenate([pos_vic, np.array([0,0,0])])
+x_bar0_vic = x_bar0_vic.reshape((6, 1))
+
+#Alt KF inputs
 while True:
     loopStart = getMilliTime()
 
@@ -208,12 +218,7 @@ while True:
 
 
 
-    #could all be moved ahead of the loop
-    R_vic = np.identity(3)*0.001**2
-    Q_vic = np.identity(6)*0.1**2
-    P_bar_0_vic = np.identity(6)
-    x_bar0_vic = np.concatenate([pos_vic, np.array([0,0,0])])
-    x_bar0_vic = x_bar0_vic.reshape((6, 1))
+
     #estimate the velocity (would like to move this to a paralell operation at higher rate, will need dt calculated in that loop as well)
     if start:
         vkf = velocity_KF(start,P_bar_0_vic,x_bar0_vic,dt,Q_vic,R_vic,pos_vic.reshape((3,1)))
@@ -280,16 +285,17 @@ while True:
 
     #ALTITUDE CONTROL#
     #differentiator
-    #print np.power(np.array([0.01, 1]),2)
-    P_bar_0 = np.diag(np.power(np.array([0.01, 1]),2))
-    x_bar0 = np.concatenate([gam_d, np.array([0])]).reshape(2,1)
-    #print x_bar0
-    Q = np.diag(np.power(np.array([0.01, 0.3]),2))
-    R = 1*pi/180
     if start:
-        KF_gam = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,gam_d)
+        #print np.power(np.array([0.01, 1]),2)
+        P_bar_0_alt = np.diag(np.power(np.array([0.01, 1]),2))
+        x_bar0_alt = np.concatenate([gam_d, np.array([0])]).reshape(2,1)
+        #print x_bar0
+        Q_alt = np.diag(np.power(np.array([0.01, 0.3]),2))
+        R_alt = 1*pi/180
+    if start:
+        KF_gam = error_derivative_KF(start,P_bar_0_alt,x_bar0_alt,dt,Q_alt,R_alt,gam_d)
     else:
-        KF_gam = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,gam_d,Pk_gam,xk_gam)
+        KF_gam = error_derivative_KF(start,P_bar_0_alt,x_bar0_alt,dt,Q_alt,R_alt,gam_d,Pk_gam,xk_gam)
     Pk_gam = KF_gam[1]
     xk_gam = KF_gam[0]
     gam_dot = xk_gam[1]
@@ -333,15 +339,16 @@ while True:
 
     #differentiator
     #print np.power(np.array([0.01, 1]),2)
-    P_bar_0 = np.diag(np.power(np.array([0.1, 1]),2))
-    x_bar0 = np.concatenate([speed_err, np.array([0])]).reshape(2,1)
-    #print x_bar0
-    Q = np.diag(np.power(np.array([0.01, 0.1]),2))
-    R = 0.1
     if start:
-        KF_speed_err = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,speed_err)
+        P_bar_0_speed = np.diag(np.power(np.array([0.1, 1]),2))
+        x_bar0_speed = np.concatenate([speed_err, np.array([0])]).reshape(2,1)
+        #print x_bar0
+        Q_speed = np.diag(np.power(np.array([0.01, 0.1]),2))
+        R_speed = 0.1
+    if start:
+        KF_speed_err = error_derivative_KF(start,P_bar_0_speed,x_bar0_speed,dt,Q_speed,R_speed,speed_err)
     else:
-        KF_speed_err = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,speed_err,Pk_speed_err,xk_speed_err)
+        KF_speed_err = error_derivative_KF(start,P_bar_0_speed,x_bar0_speed,dt,Q_speed,R_speed,speed_err,Pk_speed_err,xk_speed_err)
     Pk_speed_err = KF_speed_err[1]
     xk_speed_err = KF_speed_err[0]
     speed_err_dot = xk_speed_err[1]
@@ -349,7 +356,13 @@ while True:
     #integrator
     if start:
         speed_err_int = 0;
-    speed_err_int += speed_err*dt
+    elif KI_p*speed_err_int > pitch_sat:
+        speed_err_int = speed_err_int
+    else:
+        speed_err_int += speed_err*dt
+#    clear integrator
+    if KP_p*speed_err>pitch_sat or speed_err<0.05:
+        speed_err_int = 0;
 
 
     #pitch down speeds you up
@@ -364,15 +377,15 @@ while True:
     #YAW CONTROL#
     #differentiator
     #print np.power(np.array([0.01, 1]),2)
-    #P_bar_0 = np.diag(np.power(np.array([0.1, 1]),2))
-    #x_bar0 = np.concatenate([yaw_diff, np.array([0])]).reshape(2,1)
+    #P_bar_0_yaw = np.diag(np.power(np.array([0.1, 1]),2))
+    #x_bar0_yaw = np.concatenate([yaw_diff, np.array([0])]).reshape(2,1)
     #print x_bar0
-    #Q = np.diag(np.power(np.array([0.01, 0.3]),2))
-    #R = 1*pi/180
+    #Q_yaw = np.diag(np.power(np.array([0.01, 0.3]),2))
+    #R_yaw = 1*pi/180
     #if start:
-    #		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff)
+    #		KF_yaw_diff = error_derivative_KF(start,P_bar_0_yaw,x_bar0_yaw,dt,Q_yaw,R_yaw,yaw_diff)
     #	else:
-    #		KF_yaw_diff = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,yaw_diff,Pk_yaw_diff,xk_yaw_diff)
+    #		KF_yaw_diff = error_derivative_KF(start,P_bar_0_yaw,x_bar0_yaw,dt,Q_yaw,R_yaw,yaw_diff,Pk_yaw_diff,xk_yaw_diff)
     #	Pk_yaw_diff = KF_yaw_diff[1]
     #	xk_yaw_diff = KF_yaw_diff[0]
     #	yaw_diff_dot = xk_yaw_diff[1]
@@ -395,23 +408,28 @@ while True:
     #ROLL CONTROL#
 
     #sideways motion
+    if not start:
+        sw_slip_prev = sw_slip
     sw_slip = vel[2]
 
 
     #differentiator
     #print np.power(np.array([0.01, 1]),2)
-    P_bar_0 = np.diag(np.power(np.array([0.1, 1]),2))
-    x_bar0 = np.concatenate([sw_slip, np.array([0])]).reshape(2,1)
-    #print x_bar0
-    Q = np.diag(np.power(np.array([0.01, 0.3]),2))
-    R = 0.1
     if start:
-        KF_sw_slip = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,sw_slip)
+        P_bar_0_roll = np.diag(np.power(np.array([0.1, 1]),2))
+        x_bar0_roll = np.concatenate([sw_slip, np.array([0])]).reshape(2,1)
+        #print x_bar0
+        Q_roll = np.diag(np.power(np.array([0.01, 0.3]),2))
+        R_roll = 0.1
+    if start:
+#        KF_sw_slip = error_derivative_KF(start,P_bar_0_roll,x_bar0_roll,dt,Q_roll,R_roll,sw_slip)
+        sw_slip_dot =0;
     else:
-        KF_sw_slip = error_derivative_KF(start,P_bar_0,x_bar0,dt,Q,R,sw_slip,Pk_sw_slip,xk_sw_slip)
-    Pk_sw_slip = KF_sw_slip[1]
-    xk_sw_slip = KF_sw_slip[0]
-    sw_slip_dot = xk_sw_slip[1]
+#        KF_sw_slip = error_derivative_KF(start,P_bar_0_roll,x_bar0_roll,dt,Q_roll,R_roll,sw_slip,Pk_sw_slip,xk_sw_slip)
+        sw_slip_dot = (sw_slip-sw_slip_prev)/dt
+#    Pk_sw_slip = KF_sw_slip[1]
+#    xk_sw_slip = KF_sw_slip[0]
+#    sw_slip_dot = xk_sw_slip[1]
     #    print xk_sw_slip
     #integrator
     if start:
@@ -432,17 +450,17 @@ while True:
 
     if runtimeMode == 'debug':
         print "Pitch: %f Roll: %f YawRate: %f Throttle: %f" % (u[0], u[1], u[2], u[3])
-        #print 'Cam framerate: %f' % cam.frameRate
+#        print 'Cam framerate: %f' % cam.frameRate
 
-        #print 'Mav Time: %f' % (mavlinkTime - loopStart)
-        #print 'Acq time: %f' % (acquireTime - mavlinkTime) 
-        #print 'Vel time: %f' % (velTime - acquireTime)
+        print 'Mav Time: %f' % (mavlinkTime - loopStart)
+        print 'Acq time: %f' % (acquireTime - mavlinkTime) 
+        print 'Vel time: %f' % (velTime - acquireTime)
         print 'Measurement Conversion time: %f' % (measureTime - velTime)
         print 'Alt Control time: %f' % (altconTime - measureTime)
         print 'Speed Control time: %f' % (speedconTime - altconTime)
         print 'Yaw Control time: %f' % (yawconTime - speedconTime)
         print 'Roll Control time: %f' % (rollconTime - yawconTime)
-        #print 'Total Control time: %f' % (getMilliTime() - velTime)
+        print 'Total Control time: %f' % (getMilliTime() - velTime)
     #    convert to commands
     data = [ 0 ] * 8
 
