@@ -12,16 +12,18 @@ from velocity_KF import velocity_KF
 from coordtrans import lla2flatdumb
 from cmd_saturate import cmd_saturate
 import camera.BalloonFinder
-import Position
+from position import FakePosition
+from position import Position
 import transformations
 
 #from target_sim import target_sim
 
 #Constants
-vicon_object = "Flamewheel"
-#vicon_object = "wolverine"
+#vicon_object = "Flamewheel"
+vicon_object = "wolverine"
 
 runtimeMode = 'debug'
+#runtimeMode = 'run'
 
 #Define functions
 def signal_handler(signal, frame):
@@ -40,18 +42,9 @@ def wait_heartbeat(m):
 #Program Start
 # create a mavlink serial instance
 if runtimeMode != 'debug':
-    #master = mavutil.mavlink_connection('/dev/ttyACM0', baud=115200)
-    master = mavutil.mavlink_connection('/dev/ttyUSB0', baud=115200)
-
-
-# wait for the heartbeat msg to find the system ID
-#wait_heartbeat(master)
-
-#Setup Vicon connection
-#v = 0
-#signal.signal(signal.SIGINT, signal_handler)
-#v = Position.ViconPosition("Wand2@192.168.20.10")
-#v.start()
+    master = mavutil.mavlink_connection('/dev/ttyACM0', baud=115200)
+    # wait for the heartbeat msg to find the system ID
+    wait_heartbeat(master)
 
 #TARGET INFO(for SiL only)#
 #desired coordinate center (datum)
@@ -145,15 +138,16 @@ gam_target = 0;
 #Initialize camera balloon tracking routine
 cam = 0
 signal.signal(signal.SIGINT, signal_handler)
-cam = camera.BalloonFinder.BalloonFinder(320,240)
+cam = camera.BalloonFinder.BalloonFinder(640,480)
 cam.start()
 print 'Current video size: %dx%d' % (cam.vidSize[0], cam.vidSize[1])
 print 'Area: %d Centroid: (%d,%d) FPS: %1.2f' % (cam.area, cam.centroid[0], cam.centroid[1], cam.frameRate)
 
 #Initialize vicon system
 v=0
-signal.signal(signal.SIGINT, signal_handler)
 v = Position.ViconPosition(vicon_object + "@192.168.20.10")
+#v = FakePosition.FakePosition(1.2, 1.5, 1.4)
+
 v.start()
 print 'Z: %1.4f' % v.position[2]
 
@@ -198,15 +192,19 @@ while True:
 	#get target location in pixels
 
 	target = np.array([cam.centroid[0],cam.centroid[1]]);
-        print 'Cam framerate: %f' % cam.frameRate
 
         acquireTime = getMilliTime()
 
         if (cam.area == 0):
-            print 'Mav Time: %f' % (mavlinkTime - loopStart)
-            print 'Acq time: %f' % (acquireTime - mavlinkTime) 
-            print 'go to search'
+            if runtimeMode == 'debug':
+                print 'Cam framerate: %f' % cam.frameRate
+                print 'Mav Time: %f' % (mavlinkTime - loopStart)
+                print 'Acq time: %f' % (acquireTime - mavlinkTime) 
+                print 'go to search'
+            time.sleep(0.05)
             continue
+        else:
+            print 'Balloon area: %d' % cam.area
 
        
 
@@ -496,11 +494,14 @@ while True:
 	#COMMAND#
 	u = [pitch_com, roll_com, -r_com, throttle_com]
 	
-	#print "Pitch: %f Roll: %f YawRate: %f Throttle: %f" % (u[0], u[1], u[2], u[3])
-        print 'Mav Time: %f' % (mavlinkTime - loopStart)
-	print 'Acq time: %f' % (acquireTime - mavlinkTime) 
-	print 'Vel time: %f' % (velTime - acquireTime)
-	print 'Control time: %f' % (getMilliTime() - velTime)
+        if runtimeMode == 'debug':
+            print "Pitch: %f Roll: %f YawRate: %f Throttle: %f" % (u[0], u[1], u[2], u[3])
+            #print 'Cam framerate: %f' % cam.frameRate
+        
+            #print 'Mav Time: %f' % (mavlinkTime - loopStart)
+            #print 'Acq time: %f' % (acquireTime - mavlinkTime) 
+            #print 'Vel time: %f' % (velTime - acquireTime)
+            #print 'Control time: %f' % (getMilliTime() - velTime)
 	#    convert to commands
 	data = [ 0 ] * 8
 
