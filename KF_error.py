@@ -18,7 +18,11 @@ def error_derivative_KF(start,P_bar_0,x_bar_0,dt,Q,R,z,Pk=0,xk=0):
 	#Measurement Update
 	#print 
 	y               = z - np.dot(H_til,x_bar)
-	K               = np.dot(P_bar,H_til.reshape(2,1))/(np.dot(np.dot(H_til,P_bar),H_til.reshape(2,1)) + R)
+	#K               = np.dot(P_bar,H_til.reshape(2,1))/(np.dot(np.dot(H_til,P_bar),H_til.reshape(2,1)) + R)
+	N = np.dot(P_bar,np.transpose(H_til)),
+	D = np.dot(np.dot(H_til,P_bar),np.transpose(H_til)) + R
+	Kt = sp.linalg.solve(np.transpose(D),np.transpose(N))
+	K = np.transpose(Kt)
 	xk_plus       = x_bar + K*y
 	#print np.dot(np.dot(K,np.array([H_til])),P_bar)
 	Pk_plus       = np.identity(2) - np.dot(np.dot(K,np.array([H_til])),P_bar)

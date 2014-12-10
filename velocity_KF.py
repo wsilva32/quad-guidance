@@ -17,7 +17,11 @@ def velocity_KF(start,P_bar_0,x_bar_0,dt,Q,R,z,Pk=0,xk=0):
 		x_bar = np.dot(phi, xk)
 	#Measurement Update
 	y               = z - np.dot(H_til,x_bar)
-	K               = np.dot(np.dot(P_bar,np.transpose(H_til)),sp.linalg.inv(np.dot(np.dot(H_til,P_bar),np.transpose(H_til)) + R))
+	#K               = np.dot(np.dot(P_bar,np.transpose(H_til)),sp.linalg.inv(np.dot(np.dot(H_til,P_bar),np.transpose(H_til)) + R))
+	N = np.dot(P_bar,np.transpose(H_til)),
+	D = np.dot(np.dot(H_til,P_bar),np.transpose(H_til)) + R
+	Kt = sp.linalg.solve(np.transpose(D),np.transpose(N))
+	K = np.transpose(Kt)
 	xk_plus       = x_bar + np.dot(K,y)
 	Pk_plus       = (np.identity(6) - np.dot(np.dot(K,H_til),P_bar))
 	#print x_bar
