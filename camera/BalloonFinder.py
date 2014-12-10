@@ -13,6 +13,8 @@ class BalloonFinder(threading.Thread):
         self.area = 0
         self.centroid = (0,0)
         self.frameRate = 0.0
+        self.fovH = 51.4
+        self.fovV = 40.0
 
     def stop(self):
         self._stop.set()
