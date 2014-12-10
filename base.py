@@ -121,9 +121,9 @@ class DroneBase(threading.Thread):
                 self.master.param_set_send('DCM_CHECK_THRESH',0)
                 #http://copter.ardupilot.com/wiki/ekf-inav-failsafe/
 
+        def arm(self):
                 #Arm ArduCopter
                 self.master.arducopter_arm()
-
                 time.sleep(5)	#delay to wait for arm to complete
 
 	def update_mavlink(self):
