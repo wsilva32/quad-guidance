@@ -24,6 +24,9 @@ class DroneBase(threading.Thread):
             self.base_rc_throttle = 1516
             self.base_rc_yaw = 1520
 
+            #Basic runtime mode
+            self.mode = 'MANUAL'
+
             #Home x,y,x position
             self.home_x = 0
             self.home_y = 0
@@ -63,6 +66,7 @@ class DroneBase(threading.Thread):
             logging.basicConfig(filename='vidro.log', level=logging.DEBUG)
 
         def stop(self):
+            self.master.arducopter_disarm()
             self.cam.stop()
             self.vicon.stop()
             self._stop.set()
@@ -103,7 +107,25 @@ class DroneBase(threading.Thread):
                 while (self.current_rc_channels[0] == None):
                     self.update_mavlink()
                     print("Got RC channels")
-                    
+                
+                #set mode to stabilize
+                self.master.set_mode('STABILIZE')
+
+                #Set arming check to 0
+                self.master.param_set_send('ARMING_CHECK',0)
+                self.rc_all_reset()
+                self.send_rc_overrides()
+                self.mode = 'MANUAL'     
+
+                #disable DCM Threshold check
+                self.master.param_set_send('DCM_CHECK_THRESH',0)
+                #http://copter.ardupilot.com/wiki/ekf-inav-failsafe/
+
+                #Arm ArduCopter
+                self.master.arducopter_arm()
+
+                time.sleep(5)	#delay to wait for arm to complete
+
 	def update_mavlink(self):
 		"""
 		Function for getting the general mavlink message and changing class variables based on that message.
@@ -120,7 +142,7 @@ class DroneBase(threading.Thread):
 		if self.msg:
 			#print self.msg.get_type()
 
-                    #manual override: Channel 6
+                    #manual override: Channel 5
 			if self.msg.get_type() == "RC_CHANNELS_RAW":
 				try:
 					self.current_rc_channels[0] = self.msg.chan1_raw
@@ -131,9 +153,18 @@ class DroneBase(threading.Thread):
 					self.current_rc_channels[5] = self.msg.chan6_raw
 				except:
 					pass
-				
-                                #TODO: Implement a safety if the manual control is override is set
-				#self.send_rc_overrides()
+                                        
+				#Implement a safety if the manual control is override is set
+                                if self.current_rc_channels[4] > 1500:
+                                    #Manual mode
+                                    #Release controls
+                                    self.rc_all_reset()
+                                    self.send_rc_overrides()
+                                    self.mode = 'MANUAL'
+                                else:
+                                    self.mode = 'STAB'
+                                    self.send_rc_overrides()
+
                                 #print 'RC:', self.current_rc_channels
 
 	def close(self):
@@ -168,6 +199,7 @@ class DroneBase(threading.Thread):
 		return rc_value
 
 	def send_rc_overrides(self):
+            if self.mode == 'STAB':
 		self.master.mav.rc_channels_override_send(self.master.target_system, self.master.target_component, self.current_rc_overrides[0], self.current_rc_overrides[1], self.current_rc_overrides[2], self.current_rc_overrides[3], self.current_rc_overrides[4], self.current_rc_overrides[5], 0, 0)
 		#self.master.mav.file.fd.flush()
 
