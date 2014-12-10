@@ -63,6 +63,8 @@ class DroneBase(threading.Thread):
             logging.basicConfig(filename='vidro.log', level=logging.DEBUG)
 
         def stop(self):
+            self.cam.stop()
+            self.vicon.stop()
             self._stop.set()
 
         def stopped(self):
@@ -72,7 +74,7 @@ class DroneBase(threading.Thread):
             self.connect_mavlink()
             while not self.stopped():
                 self.update_mavlink()
-                time.sleep(0.05)
+                time.sleep(0.01)
                 
 	def connect_mavlink(self):
 		"""
@@ -94,7 +96,7 @@ class DroneBase(threading.Thread):
                 #setup data stream
                 self.master.mav.request_data_stream_send(self.master.target_system, self.master.target_component, 0, 1, 0) #All
                 self.master.mav.request_data_stream_send(self.master.target_system, self.master.target_component, 3, 25, 1) #RC channels
-                self.master.mav.request_data_stream_send(self.master.target_system, self.master.target_component, 6, 25, 1) #Position
+                #self.master.mav.request_data_stream_send(self.master.target_system, self.master.target_component, 6, 25, 1) #Position
 			
                 #Get intial values from the APM
                 print "Getting inital values from APM..."
@@ -113,7 +115,7 @@ class DroneBase(threading.Thread):
 		-'HEARTBEAT'
 		This is non-blocking so does not gaurantee to chnage any values.
 		"""
-		self.msg = self.master.recv_match(blocking=False)
+		self.msg = self.master.recv_match(blocking=True)
 
 		if self.msg:
 			#print self.msg.get_type()
@@ -132,6 +134,7 @@ class DroneBase(threading.Thread):
 				
                                 #TODO: Implement a safety if the manual control is override is set
 				#self.send_rc_overrides()
+                                #print 'RC:', self.current_rc_channels
 
 	def close(self):
 		"""
