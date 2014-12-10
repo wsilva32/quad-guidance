@@ -10,7 +10,7 @@ class AltitudeHold(object):
 
     def setRef(self, m_ref):
         self.altPID.set(m_ref)
-        sef.ref = m_ref
+        self.ref = m_ref
 
     def getThrottle(self):
         refFFThrottle = 1488/(cos(self.drone.get_roll())*cos(self.drone.get_pitch()))
