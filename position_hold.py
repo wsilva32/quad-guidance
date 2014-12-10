@@ -14,7 +14,7 @@ class AltitudeHold(object):
 
     def getThrottle(self):
         refFFThrottle = 1488/(cos(self.drone.get_roll())*cos(self.drone.get_pitch()))
-        self.altPID.step(drone.get_position()[2])
+        self.altPID.step(self.drone.get_position()[2])
         throt_cmd = refFFThrottle + altPID.get()
         return throt_cmd
         
