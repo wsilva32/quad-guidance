@@ -4,11 +4,13 @@ import sys, math, time
 import socket, struct, threading
 import logging
 from position import Position
+import camera.BalloonFinder
 
-class DroneBase:
+class DroneBase(threading.Thread):
 
-	def __init__(self, vicon_name='Flamewheel'):
-
+	def __init__(self, vicon_name='Flamewheel', image_width=320, image_height=240):
+            super(DroneBase, self).__init__()
+            self._stop = threading.Event()
             #for GCS with wireless radio
             #self.baud = 57600 
             #self.device = '/dev/ttyUSB0'
@@ -51,11 +53,27 @@ class DroneBase:
                 
             self.clock = time.time()
 
-            self.vicon = Position.ViconPosition("l@192.168.20.10")
+            self.vicon = Position.ViconPosition(vicon_name + "@192.168.20.10")
+            self.vicon.start()
+            
+            self.cam = camera.BalloonFinder.BalloonFinder(320,240)
+            self.cam.start()
 
             #Start of a log
             logging.basicConfig(filename='vidro.log', level=logging.DEBUG)
 
+        def stop(self):
+            self._stop.set()
+
+        def stopped(self):
+            return self._stop.isSet()
+            
+        def run(self):
+            self.connect_mavlink()
+            while not self.stopped():
+                self.update_mavlink()
+                time.sleep(0.05)
+                
 	def connect_mavlink(self):
 		"""
 		Initialize connection to pixhawk and make sure to get first heartbeat message
@@ -100,6 +118,7 @@ class DroneBase:
 		if self.msg:
 			#print self.msg.get_type()
 
+                    #manual override: Channel 6
 			if self.msg.get_type() == "RC_CHANNELS_RAW":
 				try:
 					self.current_rc_channels[0] = self.msg.chan1_raw
@@ -111,122 +130,18 @@ class DroneBase:
 				except:
 					pass
 				
-				if self.vicon_time >= self.get_vicon()[0]:
-					logging.error('Vicon system values are remainng the same. Stop the system and restart the vicon values')
-					self.set_rc_throttle(self.base_rc_throttle)
-					self.set_rc_roll(self.base_rc_roll)
-					self.set_rc_pitch(self.base_rc_pitch)
-					self.set_rc_yaw(self.base_rc_yaw)
-					self.vicon_error = True
-				self.vicon_time = self.get_vicon()[0]
-
-				self.send_rc_overrides()
-
-			if self.sitl == True:
-				if self.msg.get_type() == "ATTITUDE":
-					self.current_yaw = self.msg.yaw*180/math.pi
-
-				if self.msg.get_type() == "GLOBAL_POSITION_INT":
-					self.current_lat = self.msg.lat * 1.0e-7
-					self.current_lon = self.msg.lon * 1.0e-7
-					self.current_alt = self.msg.alt-self.ground_alt
-
-	def connect_vicon(self):
-		"""
-		Connects to vicon. This is needed to scream vicon data.
-		"""
-		self.s = ViconStreamer()
-		self.s.connect("Vicon", 800)
-		self.streams = self.s.selectStreams(["Time", "t-", "a-"])
-		self.s.startStreams(verbose=False)
-		print "checking values..."
-		while self.s.getData() == None:
-			pass
-			
-		print "Got inital vicon position"
-		self.home_x = self.get_position()[0]
-		self.home_y = self.get_position()[1]
-		self.home_z = self.get_position()[2]
-		
-		timer = time.time()
-		self.vicon_time = self.get_vicon()[0]
-		time.sleep(1)
-		while self.vicon_time >= self.get_vicon()[0]:
-			if (time.time() - timer) > 10:
-				print "unable to connect to the vicon system. Needs to be reset"
-				logging.error('Unable to connect to the vicon system. Needs to be reset')
-				return False
-		print "Vicon Connected..."
-		return True
-		"""
-		if len(self.s.getData()) < 51:
-			self.num_vicon_objs = 1
-		elif len(self.s.getData()) > 50:
-			self.num_vicon_objs = 2
-		else:
-			logging.error('Number of Vicon objects was not set. This means that length of s.getData() was not correct')
-		"""
-
-	def disconnect_vicon(self):
-		"""
-		Properly closes vicon connection. Call this when finished using vicon.
-		"""
-		self.s.close()
-
-	def connect(self):
-		"""
-		Connects to mavlink and vicon
-		"""
-		flight_ready = True
-	
-                flight_ready = self.connect_vicon()
-		self.connect_mavlink()
-		return flight_ready
+                                #TODO: Implement a safety if the manual control is override is set
+				#self.send_rc_overrides()
 
 	def close(self):
 		"""
 		Call at the end of all programs.
 		"""
-		if self.sitl == False:
-			self.disconnect_vicon()
-
-	def get_vicon(self):
-		"""
-		Gets vicon data in the folling format:
-
-		if num_vicon_objs == 1:
-			vicon_data()[0] = time
-			vicon_data()[1] = x
-			vicon_data()[2] = y
-			vicon_data()[3] = z
-			vicon_data()[4] = x rotation
-			vicon_data()[5] = y rotation
-			vicon_data()[6] = z rotation
-
-		if num_vicon_objs == 2:
-			vicon_data()[0] = time
-			vicon_data()[1] = x_1
-			vicon_data()[2] = y_1
-			vicon_data()[3] = z_1
-			vicon_data()[4] = x_2
-			vicon_data()[5] = y_2
-			vicon_data()[6] = z_2
-			vicon_data()[7] = x_rotation_1
-			vicon_data()[8] = y_rotation_1
-			vicon_data()[9] = z_rotation_1 (yaw)
-			vicon_data()[10] = x_rotation_2
-			vicon_data()[11] = y_rotation_2
-			vicon_data()[12] = z_rotation_2
-		"""
-		return self.s.getData()
-
-	def set_vicon_home(self):
-		"""
-		Set the home coordinate for the vicon data.
-		"""
-		self.home_x = self.get_vicon()[1]
-		self.home_y = self.get_vicon()[2]
-		self.home_z = self.get_vicon()[3]
+                self.vicon.stop()
+                self.cam.stop()
+                
+	def get_position(self):
+            return self.vicon.position
 
 	def set_fence(min_x, max_x, min_y, max_y, min_z, max_z):
 		"""
@@ -312,115 +227,33 @@ class DroneBase:
 			return True
 		return False
 
-	def get_alt(self):
-		"""
-		Returns the altitude in mm in SITL
-		"""
-		return self.current_alt
-
-	def get_lat(self):
-		"""
-		Returns the latitude of the copter in SITL
-		"""
-		return self.current_lat
-
-	def get_lon(self):
-		"""
-		Returns the longitude of the copter in SITL
-		"""
-		return self.current_lon
-
 	def get_roll(self):
-		"""
-		Returns the roll in radians
-		"""
-		return self.current_roll
+            """
+            Returns the roll in radians
+            """
+            return self.vicon.angles[0]
 
-	def get_yaw_radians(self):
-		"""
-		Returns the current yaw in radians from -pi to pi
-		Works for both SITL and Vicon
-		For SITL it returns that yaw givn by the copter and for the Vicon system it returns the yaw given by the Vicon
-		"""
-		yaw = None
+        def get_pitch(self):
+            """
+            Returns the pitch of the copter in radians
+            """
+            return self.vicon.angles[1]
+        
+        def get_yaw(self):
+            return self.vicon.angles[2]
 
-		if self.sitl == True:
-			yaw = self.current_yaw
+        def get_area(self):
+            return self.cam.area
 
-		else:
-			try:
-				#Depending on different number of objects yaw located in different place in the vicon data stream
-				if self.num_vicon_objs == 1:
-					yaw = self.get_vicon()[6]*(1.0)
-				if self.num_vicon_objs == 2:
-					yaw = self.get_vicon()[9]*(1.0)
-				self.vicon_error = False
-			except:
-				logging.error('Unable to get the yaw(radians) from vicon')
-				yaw = None
-				self.vicon_error = True
-		return yaw
+        def get_centroid(self):
+            return self.cam.centroid
+            
+        def get_framerate(self):
+            return self.cam.frameRate
 
-	def get_yaw_degrees(self):
-		"""
-		Returns the current yaw in degrees from 0 to 360
-		Works for SITL and Vicon
-		For SITL it returns that yaw givn by the copter and for the Vicon system it returns the yaw given by the Vicon
-		"""
-		try:
-			if self.num_vicon_objs == 1:
-				yaw = math.degrees((self.get_vicon()[6]*(1.0)) % ((2*math.pi)*(1.0)))*-1
-			if self.num_vicon_objs == 2:
-				yaw = math.degrees((self.get_vicon()[9]*(1.0)) % ((2*math.pi)*(1.0)))*-1
-			self.vicon_error = False
-			if yaw < 0.0:
-				yaw += 360
+        def get_vidsize(self):
+            return self.cam.vidSize
 
-		except:
-			logging.error('Unable to get the yaw(radians) from vicon')
-			yaw = None
-			self.vicon_error = True
-
-		return yaw
-
-	def get_pitch(self):
-		"""
-		Returns the pitch of the copter in radians
-		"""
-		return self.current_pitch
-
-	def get_position(self):
-		"""
-		Will return position in millimeters. (X,Y,Z)
-		Use this for Vicon and SITL in the loop.
-		"""
-		position=[None]*3
-
-                
-                try:
-                    position[0] = self.get_vicon()[1]
-                position[1] = self.get_vicon()[2]
-                position[2] = self.get_vicon()[3]
-				self.vicon_error = False
-			except:
-				logging.error('Unable to get position data from vicon')
-				position = None
-				self.vicon_error = True
-		return position
-
-	def get_distance_xy(self):
-		"""
-		Returns the distance traveled from home in millimeters
-		"""
-                
-                distance = math.sqrt(self.get_position()[0]*self.getposition()[0] + self.get_position()[1]*self.get_position()[1])
-		return distance
-
-	def set_home(self):
-		"""
-		Sets the home for he quadcopter.
-		Use this for Vicon 
-                """
-                self.set_vicon_home()
-
+        def get_fov(self):
+            return (self.cam.fovH, self.cam.fovV)
 
