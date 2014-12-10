@@ -26,3 +26,4 @@ for i in range(0,timeLen):
 
 line, = plt.plot(x, output)
 plt.show()
+

@@ -1,79 +1,23 @@
 import base
-import curses
-import time
-import signal
-import sys
 import pid
-import numpy as np
-import numpy.matlib as matlib 
 from math import *
 
-useCurses = 1
-drone = None
+class AltitudeHold(object):
+    def __init__(self, m_drone ):
+        self.drone = m_drone
+        self.ref = 0.0
+        self.altPID = pid.PidController(100.0, 0.0, 0.0, -631, 631)
 
-#Close throttle control around throttle
-altPID = pid.PidController(100.0, 0.0, 0.0, -631, 631)
+    def setRef(self, m_ref):
+        self.altPID.set(m_ref)
+        sef.ref = m_ref
 
-#Initalization of curses
-if useCurses:
-    screen = curses.initscr()
+    def getThrottle(self):
+        refFFThrottle = 1488/(cos(self.drone.get_roll())*cos(self.drone.get_pitch()))
+        self.altPID.step(drone.get_position()[2])
+        throt_cmd = refFFThrottle + altPID.get()
+        return throt_cmd
+        
+    def getError(self):
+        return (self.ref - self.drone.get_position()[2])
 
-def signal_handler(signal, frame):
-    global drone
-    drone.stop()
-    if useCurses:
-        screen.clear()
-        screen.refresh()
-        curses.endwin()
-    sys.exit(0)
-
-def curses_print(string, line, col):
-	"""
-	Function to do a simple curses print.
-	"""
-
-	#Check for bad inputs
-	if col > 1 or col < 0:
-		return
-
-	if line > 22 or line < 0:
-		return
-
-	#Print to screen using curses
-	if col == 0:
-		screen.addstr(line, 0, string)
-	if col == 1:
-		screen.addstr(line, 40, string)
-
-	screen.refresh()
-
-
-
-drone = base.DroneBase(vicon_name='Flamewheel')
-drone.start()
-
-signal.signal(signal.SIGINT, signal_handler)
-
-time.sleep(4)
-if useCurses:
-    screen.clear()
-    screen.refresh()
-
-refAlt = 1.0
-
-altPID.set(refAlt)
-while (1):
-    refFFThrottle = 1488/(cos(drone.get_roll())*cos(drone.get_pitch()))
-    altPID.step(drone.get_position()[2])
-    throt_cmd = refFFThrottle + altPID.get()
-    drone.set_rc_throttle(throt_cmd)
-
-    if useCurses:
-        curLine = 0
-        curses_print("Drone mode: "  + drone.mode + '   ', curLine, 0)
-        curLine += 1 
-        curses_print("Altitude: %1.3f Error: %1.3f" % (drone.get_position()[2], refAlt - drone.get_position()[2]), curLine,0)
-        curLine += 1
-        curses_print("Throttle Command: %d" % throt_cmd , curLine,0)
-        curLine += 1
-    time.sleep(0.1)
