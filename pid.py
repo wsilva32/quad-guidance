@@ -21,11 +21,12 @@ class PidController (object):
         self.tune(P, I, D)
         self.range(below, above)
         self.output = 0.0
+        self._lastTime = time.time()
 
     def reset(self):
         self._integral = 0.0
         self._previous = 0.0
-        self._lastTime = self.getMilliTime()
+        self._lastTime = time.time()
         self._lastSign = 1 #positive
 
     def step(self, input=None):
@@ -40,8 +41,10 @@ class PidController (object):
         else:
             self.input = input
 
+        curTime = time.time()
+        dt = curTime - self._lastTime
+        self._lastTime = curTime
 
-        dt = self.getMilliTime() - self._lastTime
         err = self.setpoint - self.input
 
         if self._lastSign != np.sign(err):
@@ -55,10 +58,9 @@ class PidController (object):
         I = self._integral
         D = (err - self._previous) / dt
         output = self.Kp*err + self.Ki*I + self.Kd*D
-        #print 'Perr: %1.3f Ierr: %1.3f Derr: %1.3f' % (self.Kp*err, self.Ki*I, self.Kd*D)
+        print 'dt: %1.4f Perr: %1.3f Ierr: %1.3f Derr: %1.3f Output: %1.3f' % (dt, self.Kp*err, self.Ki*I, self.Kd*D, output)
         self._previous = err
         self.output = self.bound(output)
-        self._lastTime = self.getMilliTime()
 
     def bound(self, output):
         '''Ensure the output falls within the current output range.
@@ -93,5 +95,3 @@ class PidController (object):
         '''Returns the current output value at any time.'''
         return self.output
 
-    def getMilliTime(self):
-        return time.time() * 1000
