@@ -1,14 +1,18 @@
 import position_hold
+import time
+
 from numpy import *
+
 def search(drone):
-	alt_cmd = 1.0 #meter
+	alt_cmd = 1.5 #meter
 	alt = position_hold.AltitudeHold(drone)
 	alt.setRef(alt_cmd)
 	while True:
 		alterror = alt.getError() #returns floating error (m)
 		RC3_cmd = alt.getThrottle() #returns PWM cmd
-		print 'error: ' % alterror
-		print 'throttle: ' % RC3_cmd
+
+		drone.log('positionZ:\t%1.4f\tthrottle:\t%d\terror\t%1.4f\t%d' % (drone.get_position()[2], RC3_cmd,alterror, drone.current_rc_channels[4]))
+
 		drone.set_rc_throttle(RC3_cmd)
 		if abs(alterror) <= 0.1:
 			r_com = 10*pi/180 #10 deg/s yaw command
@@ -23,8 +27,10 @@ def search(drone):
 			else:
 				RC4_cmd = RC4_ZERO
 			drone.set_rc_yaw(RC4_cmd)
-			print 'yawing: ' % RC4_cmd
+			print 'yawing: %d ' % RC4_cmd
 		if drone.get_area() > 0:
 			break
+
+                time.sleep(0.05)
 		
 	

@@ -2,6 +2,8 @@ import base
 import search
 import target_guide
 import signal
+import sys
+import time
 
 global drone
 drone = None
@@ -15,8 +17,9 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 #instantiate drone object
-drone = base.DroneBase(vicon_name='Flamewheel')
+drone = base.DroneBase(vicon_name='Flamewheel', fileName = 'altitude_log.log')
 drone.start()
+drone.arm()
 
 while True:
 	if drone.get_area()>0:

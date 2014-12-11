@@ -43,11 +43,10 @@ def curses_print(string, line, col):
 
 
 
-drone = base.DroneBase(vicon_name='wolverine')
+drone = base.DroneBase(vicon_name='Flamewheel')
 drone.start()
 
 signal.signal(signal.SIGINT, signal_handler)
-
 time.sleep(4)
 if useCurses:
     screen.clear()

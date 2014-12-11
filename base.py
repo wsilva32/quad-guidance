@@ -5,16 +5,21 @@ import socket, struct, threading
 import logging
 from position import Position
 import camera.BalloonFinder
+from datetime import datetime
 
 class DroneBase(threading.Thread):
 
-	def __init__(self, vicon_name='Flamewheel', image_width=320, image_height=240):
+	def __init__(self, vicon_name='Flamewheel', image_width=320, image_height=240, fileName = 'drone.log'):
             super(DroneBase, self).__init__()
             self._stop = threading.Event()
             #for GCS with wireless radio
             #self.baud = 57600 
             #self.device = '/dev/ttyUSB0'
-            
+            self.master = None
+
+            self._fileName = fileName
+            self._logFile = open(fileName, 'w')
+
             #for raspberry pi
             self.baud = 115200 
             self.device = '/dev/ttyACM0'
@@ -79,7 +84,12 @@ class DroneBase(threading.Thread):
             while not self.stopped():
                 self.update_mavlink()
                 time.sleep(0.01)
+        
+        def log(self, msg):
+                dt = datetime.now()
                 
+                self._logFile.write('time:\t' + str(dt.minute)+str(dt.second) + '.' + str(dt.microsecond) + '\t' + msg + '\n')
+
 	def connect_mavlink(self):
 		"""
 		Initialize connection to pixhawk and make sure to get first heartbeat message
@@ -106,7 +116,7 @@ class DroneBase(threading.Thread):
                 print "Getting inital values from APM..."
                 while (self.current_rc_channels[0] == None):
                     self.update_mavlink()
-                    print("Got RC channels")
+                    #print("Got RC channels")
                 
                 #set mode to stabilize
                 self.master.set_mode('STABILIZE')
@@ -121,8 +131,13 @@ class DroneBase(threading.Thread):
                 self.master.param_set_send('DCM_CHECK_THRESH',0)
                 #http://copter.ardupilot.com/wiki/ekf-inav-failsafe/
 
+                print 'APM Initialized!'
+
         def arm(self):
                 #Arm ArduCopter
+                while (self.master == None):
+                        time.sleep(1)
+
                 self.master.arducopter_arm()
                 time.sleep(5)	#delay to wait for arm to complete
 
