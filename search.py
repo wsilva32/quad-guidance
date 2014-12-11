@@ -4,17 +4,33 @@ import time
 from numpy import *
 
 def search(drone):
-	alt_cmd = 1.5 #meter
+	alt_cmd = 1 #meter
 	alt = position_hold.AltitudeHold(drone)
 	alt.setRef(alt_cmd)
+
+	x_cmd = 1
+	y_cmd = 1
+	horz = position_hold.LateralHold(drone)
+	horz.setRef(x_cmd,y_cmd)
+
 	while True:
+		#get controller error and pitch/roll commands
+		xerror,yerror = horz.getError()
+		RC1_cmd = horz.getPitch()
+		RC2_cmd = horz.getRoll()
+
+		#get controller error and throttle command
 		alterror = alt.getError() #returns floating error (m)
 		RC3_cmd = alt.getThrottle() #returns PWM cmd
 
 		drone.log('positionZ:\t%1.4f\tthrottle:\t%d\terror\t%1.4f\t%d' % (drone.get_position()[2], RC3_cmd,alterror, drone.current_rc_channels[4]))
-
+		
+		#issue RC overrides from controllers
+		drone.set_rc_roll(RC1_cmd)
+		drone.set_rc_pitch(RC2_cmd)
 		drone.set_rc_throttle(RC3_cmd)
-		if abs(alterror) <= 0.1:
+		#Check if altitude is reached
+		if sqrt(alterror**2 + xerror**2 + yerror**2) <= 0.1:
 			r_com = 10*pi/180 #10 deg/s yaw command
 			RC4_MAX = 1933.000000
 			RC4_MIN = 1109.000000
