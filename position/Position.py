@@ -32,7 +32,7 @@ class ViconPosition(threading.Thread):
         
         self.position = packet['position']
         #self.angles = (angles[1]*rad2deg, angles[0]*rad2deg, angles[2]*rad2deg)
-        self.angles = (angles[1], angles[0], angles[2])
+        self.angles = (angles[0], angles[1], angles[2])
         #print "CB: X: %1.4f \tY: %1.4f \tZ: %1.4f \tRoll: %1.4f \tPitch: %1.4f \tYaw: %1.4f" % \
         #     (self.position[0], self.position[1], self.position[2], self.angles[0], self.angles[1], self.angles[2])
         self.lastTime = time.time()
