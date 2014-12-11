@@ -425,5 +425,23 @@ def target_guide(drone):
 	    drone.set_rc_yaw(RC4_cmd)
 	    drone.set_rc_throttle(RC3_cmd)
 
+		#Human instruction
+		if roll_com > 0:
+			print 'ROLL LEFT'
+		elif roll_com < 0:
+			print 'ROLL RIGHT'
+
+		if pitch_com < 0:
+			print 'PITCH BACK'
+		elif  pitch_com > 0:
+			print 'PITCH FORWARD'
+
+		if r_com > 0:
+			print 'YAW COUNTER-CLOCKWISE'
+		elif rcom < 0:
+			print 'YAW CLOCKWISE'
+
+		print 'THROTTLE: %f\%' % throttle_com*100
+
 	    start = False
 
