@@ -31,7 +31,7 @@ def search(drone):
 	LIM_PITCH = 4500.00000/100 * pi/180
 	LIM_YAW_RATE = 4.500000*200/4.5 * pi/180
 
-        drone.writeHeader('roll\tpitch\tyaw\tpositionZ\tthrottle\terror\toverride')
+        drone.writeHeader('roll\tpitch\tyaw\tpositionZ\tthrottle\terror')
 	while True:
 		#get controller error and pitch/roll commands
 		xerror,yerror = horz.getError()
@@ -42,9 +42,9 @@ def search(drone):
 		alterror = alt.getError() #returns floating error (m)
 		RC3_cmd = alt.getThrottle() #returns PWM cmd
 
-		drone.log('%1.4f\t%1.4f\t%1.4f\t%1.4f\t%d\t%1.4f\t%d' % 
+		drone.log('%1.4f\t%1.4f\t%1.4f\t%1.4f\t%d\t%1.4f' % 
                           (drone.get_roll(), drone.get_pitch(), drone.get_yaw(), 
-                           drone.get_position()[2], RC3_cmd,alterror, drone.current_rc_channels[4]))
+                           drone.get_position()[2], RC3_cmd,alterror))
 		
 		#set soft limits
 		softroll = 10 * pi/180 #10 degrees

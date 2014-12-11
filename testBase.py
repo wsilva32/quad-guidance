@@ -57,9 +57,9 @@ while (1):
     if useCurses:
         curses_print("Drone mode: "  + drone.mode + '   ', curLine, 0)
         curLine += 1 
-        curses_print("Drone Location: %1.3f, %1.3f, %1.3f" % (drone.get_position()[0], drone.get_position()[1], drone.get_position()[2]), curLine, 0)
+        curses_print("Drone Location: %1.3f, %1.3f, %1.3f          " % (drone.get_position()[0], drone.get_position()[1], drone.get_position()[2]), curLine, 0)
         curLine += 1 
-        curses_print("Balloon Area: %d Centroid: (%d, %d)" % (drone.get_area(), drone.get_centroid()[0], drone.get_centroid()[1]), curLine, 0)
+        curses_print("Balloon Area: %d Centroid: (%d, %d)          " % (drone.get_area(), drone.get_centroid()[0], drone.get_centroid()[1]), curLine, 0)
         curLine += 1 
         curses_print("Roll RC Level: " + str(drone.current_rc_channels[0]) + '   ',curLine, 0)
         curLine += 1 
