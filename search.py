@@ -27,6 +27,10 @@ def search(drone):
 	RC4_MAX = 1933.000000
 	RC4_MIN = 1109.000000
 
+	LIM_ROLL = 4500.00000/100 * pi/180
+	LIM_PITCH = 4500.00000/100 * pi/180
+	LIM_YAW_RATE = 4.500000*200/4.5 * pi/180
+
 	while True:
 		#get controller error and pitch/roll commands
 		xerror,yerror = horz.getError()

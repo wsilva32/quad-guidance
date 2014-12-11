@@ -391,7 +391,7 @@ def target_guide(drone):
 	    #    convert to commands
 	    data = [ 0 ] * 8
 
-		RC2_cmd = RC2_MIN + (RC2_MAX - RC2_MIN)*(pitch_com+LIM_PITCH/(2*LIM_PITCH))
+	    RC2_cmd = RC2_MIN + (RC2_MAX - RC2_MIN)*(pitch_com+LIM_PITCH/(2*LIM_PITCH))
 
 	    #if pitch_com > 0:
 		#	RC2_cmd = -pitch_com * (RC2_ZERO - RC2_MIN)/(LIM_PITCH_MAX) + RC2_ZERO
@@ -400,7 +400,7 @@ def target_guide(drone):
 	    #else:
 		#	RC2_cmd = RC2_ZERO
 
-		RC1_cmd = RC1_MIN + (RC1_MAX - RC1_MIN)*(roll_com+LIM_ROLL/(2*LIM_ROLL))
+	    RC1_cmd = RC1_MIN + (RC1_MAX - RC1_MIN)*(roll_com+LIM_ROLL/(2*LIM_ROLL))
 
 	    #if roll_com > 0:
 		#	RC1_cmd = roll_com * (RC1_ZERO - RC1_MIN)/(LIM_ROLL) + RC1_ZERO
@@ -411,7 +411,7 @@ def target_guide(drone):
 		
 	    RC3_cmd = RC3_MIN + (RC3_MAX - RC3_MIN)*throttle_com
 
-		RC4_cmd = RC4_MIN + (RC4_MAX - RC4_MIN)*(r_com+LIM_YAW_RATE/(2*LIM_YAW_RATE))
+	    RC4_cmd = RC4_MIN + (RC4_MAX - RC4_MIN)*(r_com+LIM_YAW_RATE/(2*LIM_YAW_RATE))
 
 	    #if r_com > 0:
 		#	RC4_cmd = r_com * (RC4_ZERO - RC4_MIN)/(LIM_YAW_RATE) + RC4_ZERO
