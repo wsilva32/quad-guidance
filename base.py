@@ -82,13 +82,14 @@ class DroneBase(threading.Thread):
         def run(self):
             self.connect_mavlink()
             while not self.stopped():
+                self.clock = time.time()
                 self.update_mavlink()
                 time.sleep(0.01)
         
         def log(self, msg):
                 dt = datetime.now()
                 
-                self._logFile.write('time:\t' + str(dt.minute)+str(dt.second) + '.' + str(dt.microsecond) + '\t' + msg + '\n')
+                self._logFile.write('time:\t' + str(time.time()) + '\t' + msg + '\n')
 
 	def connect_mavlink(self):
 		"""

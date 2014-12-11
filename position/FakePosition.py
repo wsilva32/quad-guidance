@@ -23,5 +23,5 @@ class FakePosition(threading.Thread):
     def run(self):
         while not self.stopped():
             time.sleep(0.01)
-            self.lastTime = self.getMilliTime()k
+            self.lastTime = time.time()
 

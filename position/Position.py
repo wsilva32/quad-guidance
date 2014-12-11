@@ -19,9 +19,6 @@ class ViconPosition(threading.Thread):
 
     def stopped(self):
         return self._stop.isSet()
-
-    def getMilliTime(self):
-        return time.time() * 1000
    
     def tracker_callback(self, userdata, packet):
         #print packet
@@ -38,7 +35,8 @@ class ViconPosition(threading.Thread):
         self.angles = (angles[1], angles[0], angles[2])
         #print "CB: X: %1.4f \tY: %1.4f \tZ: %1.4f \tRoll: %1.4f \tPitch: %1.4f \tYaw: %1.4f" % \
         #     (self.position[0], self.position[1], self.position[2], self.angles[0], self.angles[1], self.angles[2])
-        self.lastTime = self.getMilliTime()
+        self.lastTime = time.time()
+
     def run(self):
         track=vrpn.receiver.Tracker(self.hostName)
 

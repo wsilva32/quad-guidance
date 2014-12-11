@@ -106,8 +106,8 @@ class BalloonFinder(threading.Thread):
         cap.set(cv.CV_CAP_PROP_FRAME_WIDTH, self.vidSize[0])
         cap.set(cv.CV_CAP_PROP_FRAME_HEIGHT, self.vidSize[1])
         time.sleep(1)
-        getMilliTime = lambda: int(round(time.time() * 1000))
-        lastTime = getMilliTime()
+        
+        lastTime = time.time()
 
         while not self.stopped():
             _,frame = cap.read()
@@ -121,8 +121,8 @@ class BalloonFinder(threading.Thread):
                 self.area = 0
                 self.centroid = (0,0)
 
-            loopTime = getMilliTime()
+            loopTime = time.time()
             #print 'Elapsed ms/frame: %s' % (loopTime - lastTime)
-            self.frameRate = 1 / float(loopTime - lastTime) * 1000
+            self.frameRate = 1 / float(loopTime - lastTime) 
 
             lastTime = loopTime
