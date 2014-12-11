@@ -28,8 +28,8 @@ class LateralHold(object):
 		self.x_ref = 0.0
 		self.y_ref = 0.0
 		self.yaw = 0.
-		self.latPID = pid.PidController(0.0, 0.0, -50.0, -631, 631) #PID, low bound, up bound
-		self.lonPID = pid.PidController(0.0, 0.0, -50.0, -631, 631) #PID, low bound, up bound
+		self.latPID = pid.PidController(0.0, 0.0, -50.0, -631, 631) #PID, low bound, up bound gains positive
+		self.lonPID = pid.PidController(0.0, 0.0, -50.0, -631, 631) #PID, low bound, up bound gains negative
 
     def setRef(self, x_ref, y_ref):
 		self.latPID.set(0)
