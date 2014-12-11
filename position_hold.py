@@ -29,8 +29,10 @@ class LateralHold(object):
 	self.y_ref = 0.0
         self.latPID = pid.PidController(0.0, 0.0, -50.0, -631, 631) #PID, low bound, up bound
 	self.lonPID = pid.PidController(0.0, 0.0, -50.0, -631, 631) #PID, low bound, up bound
+	self.yaw = 0.0
 
     def setRef(self, x_ref, y_ref):
+	self.yaw = self.drone.get_yaw()
 	latref = -(x_ref)*sin(yaw) + (y_ref)*cos(yaw)
 	lonref = (x_ref)*cos(yaw) + (y_ref)*sin(yaw)
         self.latPID.set(latref)
@@ -39,12 +41,22 @@ class LateralHold(object):
 	self.y_ref = y_ref
 
     def getRoll(self):
+	latref = -(x_ref)*sin(yaw) + (y_ref)*cos(yaw)
+	lonref = (x_ref)*cos(yaw) + (y_ref)*sin(yaw)
+        self.latPID.set(latref)
+	self.lonPID.set(lonref)
+
 	lat = -(self.drone.get_position()[0])*sin(yaw) + (self.drone.get_position()[1])*cos(yaw)
         self.rollPID.step(lat)
         roll_cmd = self.latPID.get()
         return roll_cmd
 
     def getPitch(self):
+	latref = -(x_ref)*sin(yaw) + (y_ref)*cos(yaw)
+	lonref = (x_ref)*cos(yaw) + (y_ref)*sin(yaw)
+        self.latPID.set(latref)
+	self.lonPID.set(lonref)
+
 	lon = (self.drone.get_position()[0])*cos(yaw) + (self.drone.get_position()[1])*sin(yaw)
         self.pitchPID.step(lon)
         pitch_cmd = self.lonPID.get()
