@@ -19,7 +19,7 @@ class DroneBase(threading.Thread):
 
             self._fileName = fileName
             self._logFile = open(fileName, 'w')
-
+           
             #for raspberry pi
             self.baud = 115200 
             self.device = '/dev/ttyACM0'
@@ -68,7 +68,7 @@ class DroneBase(threading.Thread):
             self.cam.start()
 
             #Start of a log
-            logging.basicConfig(filename='vidro.log', level=logging.DEBUG)
+            #logging.basicConfig(filename='vidro.log', level=logging.DEBUG)
 
         def stop(self):
             self.master.arducopter_disarm()
@@ -85,11 +85,14 @@ class DroneBase(threading.Thread):
                 self.clock = time.time()
                 self.update_mavlink()
                 time.sleep(0.01)
-        
+                
+        def writeHeader(self, hdr):
+                self._logFile.write('time\t' + hdr + '\n')
+
         def log(self, msg):
                 dt = datetime.now()
                 
-                self._logFile.write('time:\t' + str(time.time()) + '\t' + msg + '\n')
+                self._logFile.write(('%1.6f' % time.time()) + '\t' + msg + '\n')
 
 	def connect_mavlink(self):
 		"""

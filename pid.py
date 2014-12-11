@@ -58,7 +58,7 @@ class PidController (object):
         I = self._integral
         D = (err - self._previous) / dt
         output = self.Kp*err + self.Ki*I + self.Kd*D
-        print 'dt: %1.4f Perr: %1.3f Ierr: %1.3f Derr: %1.3f Output: %1.3f' % (dt, self.Kp*err, self.Ki*I, self.Kd*D, output)
+        #print 'dt: %1.4f Perr: %1.3f Ierr: %1.3f Derr: %1.3f Output: %1.3f' % (dt, self.Kp*err, self.Ki*I, self.Kd*D, output)
         self._previous = err
         self.output = self.bound(output)
 

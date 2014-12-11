@@ -20,6 +20,7 @@ signal.signal(signal.SIGINT, signal_handler)
 drone = base.DroneBase(vicon_name='Flamewheel', fileName = 'altitude_log.log')
 drone.start()
 drone.arm()
+time.sleep(5)
 
 while True:
 	if drone.get_area()>0:

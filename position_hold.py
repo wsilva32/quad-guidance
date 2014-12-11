@@ -7,7 +7,7 @@ class AltitudeHold(object):
 		self.baseThrottle = 1525
 		self.drone = m_drone
 		self.ref = 0.0
-		self.altPID = pid.PidController(0.0, 0.0, -50.0, -631, 631) #PID, low bound, up bound
+		self.altPID = pid.PidController(5.0, 5.0, 0.0, -631, 631) #PID, low bound, up bound
 
 	def setRef(self, m_ref):
 		self.altPID.set(m_ref)
