@@ -103,19 +103,19 @@ def target_guide(drone):
 
 	RC1_MAX = 1925.000000
 	RC1_MIN =  1106.000000
-	RC1_ZERO = 1500
+	#RC1_ZERO = 1500
 
 	RC2_MAX = 1930.000000
 	RC2_MIN = 1110.000000
-	RC2_ZERO = 1500
+	#RC2_ZERO = 1500
 
 	RC3_MAX = 1929.000000
 	RC3_MIN = 1110.000000
-	RC3_ZERO = 1500
+	#RC3_ZERO = 1500
 
 	RC4_MAX = 1933.000000
 	RC4_MIN = 1109.000000
-	RC4_ZERO = 1500
+	#RC4_ZERO = 1500
 
 	LIM_PITCH_MIN = -4500.00000/100 * pi/180
 	LIM_PITCH_MAX = 4500.00000/100 * pi/180
@@ -391,28 +391,34 @@ def target_guide(drone):
 	    #    convert to commands
 	    data = [ 0 ] * 8
 
-	    if pitch_com > 0:
-		RC1_cmd = -pitch_com * (RC1_ZERO - RC1_MIN)/(LIM_PITCH_MAX) + RC1_ZERO
-	    elif pitch_com < 0:
-		RC1_cmd = pitch_com * (RC1_MAX - RC1_ZERO)/(LIM_PITCH_MIN) + RC1_ZERO
-	    else:
-		RC1_cmd = RC1_ZERO
+		RC2_cmd = RC2_MIN + (RC2_MAX - RC2_MIN)*(pitch_com+LIM_PITCH/(2*LIM_PITCH))
 
-	    if roll_com > 0:
-		RC2_cmd = roll_com * (RC2_ZERO - RC2_MIN)/(LIM_ROLL) + RC2_ZERO
-	    elif roll_com < 0:
-		RC2_cmd = roll_com * (RC2_MAX - RC2_ZERO)/(LIM_ROLL) + RC2_ZERO
-	    else:
-		RC2_cmd = RC2_ZERO
+	    #if pitch_com > 0:
+		#	RC2_cmd = -pitch_com * (RC2_ZERO - RC2_MIN)/(LIM_PITCH_MAX) + RC2_ZERO
+	    #elif pitch_com < 0:
+		#	RC2_cmd = pitch_com * (RC2_MAX - RC2_ZERO)/(LIM_PITCH_MIN) + RC2_ZERO
+	    #else:
+		#	RC2_cmd = RC2_ZERO
+
+		RC1_cmd = RC1_MIN + (RC1_MAX - RC1_MIN)*(roll_com+LIM_ROLL/(2*LIM_ROLL))
+
+	    #if roll_com > 0:
+		#	RC1_cmd = roll_com * (RC1_ZERO - RC1_MIN)/(LIM_ROLL) + RC1_ZERO
+	    #elif roll_com < 0:
+		#	RC1_cmd = roll_com * (RC1_MAX - RC1_ZERO)/(LIM_ROLL) + RC1_ZERO
+	    #else:
+		#	RC1_cmd = RC1_ZERO
 		
 	    RC3_cmd = RC3_MIN + (RC3_MAX - RC3_MIN)*throttle_com
 
-	    if r_com > 0:
-		RC4_cmd = r_com * (RC4_ZERO - RC4_MIN)/(LIM_YAW_RATE) + RC4_ZERO
-	    elif r_com < 0:
-		RC4_cmd = r_com * (RC4_MAX - RC4_ZERO)/(LIM_YAW_RATE) + RC4_ZERO
-	    else:
-		RC4_cmd = RC4_ZERO
+		RC4_cmd = RC4_MIN + (RC4_MAX - RC4_MIN)*(r_com+LIM_YAW_RATE/(2*LIM_YAW_RATE))
+
+	    #if r_com > 0:
+		#	RC4_cmd = r_com * (RC4_ZERO - RC4_MIN)/(LIM_YAW_RATE) + RC4_ZERO
+	    #elif r_com < 0:
+		#	RC4_cmd = r_com * (RC4_MAX - RC4_ZERO)/(LIM_YAW_RATE) + RC4_ZERO
+	    #else:
+		#	RC4_cmd = RC4_ZERO
 	    # set RC values
 	    drone.set_rc_roll(RC2_cmd)
 	    drone.set_rc_pitch(RC1_cmd)
